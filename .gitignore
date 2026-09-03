@@ -1,0 +1,24 @@
+# Visual Studio / .NET / C#
+.vs/
+**/bin/
+**/obj/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+[Dd]ebug/
+[Rr]elease/
+
+# Node / Web
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+
+# Zip & Archive files
+*.zip
+
+# OS / Editor generated
+.DS_Store
+Thumbs.db
+*.log

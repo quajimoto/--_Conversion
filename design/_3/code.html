@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>대회 관리 - 경진대회 평가 프로</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<!-- Tailwind CSS & Config -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#bfc8cc",
+                        "surface-bright": "#f8fafb",
+                        "on-primary-fixed-variant": "#004e5f",
+                        "on-tertiary-fixed-variant": "#1a4e50",
+                        "tertiary-fixed-dim": "#9ecfd1",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#8fd0e6",
+                        "on-secondary-fixed": "#001f24",
+                        "tertiary": "#336466",
+                        "surface-container-highest": "#e1e3e4",
+                        "secondary-fixed-dim": "#96d0da",
+                        "outline": "#70787c",
+                        "error": "#ba1a1a",
+                        "status-locked": "#F2F2F2",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#8fd0e6",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f2f4f5",
+                        "on-tertiary-container": "#f6ffff",
+                        "surface-container-high": "#e6e8e9",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b3ebff",
+                        "on-secondary": "#ffffff",
+                        "surface": "#f8fafb",
+                        "surface-tint": "#1e667a",
+                        "on-background": "#191c1d",
+                        "text-main": "#333333",
+                        "on-secondary-fixed-variant": "#094e57",
+                        "secondary-container": "#b2ecf7",
+                        "primary-container": "#3a7d91",
+                        "on-surface": "#191c1d",
+                        "secondary-fixed": "#b2ecf7",
+                        "surface-border": "#D0E3EA",
+                        "on-primary-container": "#fafdff",
+                        "success-mint": "#E2F3F0",
+                        "tertiary-fixed": "#b9ecee",
+                        "background": "#f8fafb",
+                        "secondary": "#2b666f",
+                        "inverse-surface": "#2e3132",
+                        "text-sub": "#666666",
+                        "surface-header": "#E8F4F8",
+                        "on-tertiary-fixed": "#002021",
+                        "surface-dim": "#d8dadb",
+                        "tertiary-container": "#4d7d7f",
+                        "on-secondary-container": "#326c76",
+                        "surface-variant": "#e1e3e4",
+                        "inverse-on-surface": "#eff1f2",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#eceeef",
+                        "on-primary-fixed": "#001f27",
+                        "on-surface-variant": "#40484b",
+                        "primary": "#1a6477",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "input-padding-x": "12px",
+                        "container-padding": "24px",
+                        "unit": "4px",
+                        "grid-gutter": "16px",
+                        "input-padding-y": "8px",
+                        "row-height-standard": "40px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Noto Sans", "sans-serif"],
+                        "label-md": ["Noto Sans", "sans-serif"],
+                        "headline-lg": ["Noto Sans", "sans-serif"],
+                        "body-md": ["Noto Sans", "sans-serif"],
+                        "label-sm": ["Noto Sans", "sans-serif"],
+                        "headline-md": ["Noto Sans", "sans-serif"],
+                        "title-md": ["Noto Sans", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "title-md": ["16px", { "lineHeight": "24px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-text-main font-body-md antialiased min-h-screen flex flex-col">
+<!-- TopNavBar Shared Component -->
+<nav class="bg-surface-header border-b border-surface-border flat no shadows docked full-width top-0 z-50">
+<div class="flex justify-between items-center w-full px-container-padding h-row-height-standard max-w-full mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-4">
+<span class="text-title-md font-title-md text-primary tracking-tight">경진대회 평가 프로</span>
+</div>
+<!-- Navigation Links -->
+<ul class="hidden md:flex items-center h-full gap-x-6 relative top-[1px]">
+<li>
+<a class="inline-flex items-center h-full text-text-sub font-label-md hover:text-primary hover:bg-primary-container/10 transition-colors duration-200 px-3" href="#">
+                        평가 입력
+                    </a>
+</li>
+<li>
+<a class="inline-flex items-center h-full text-text-sub font-label-md hover:text-primary hover:bg-primary-container/10 transition-colors duration-200 px-3" href="#">
+                        집계 현황
+                    </a>
+</li>
+<li>
+<!-- Active Navigation -->
+<a class="inline-flex items-center h-full text-primary font-title-md border-b-2 border-primary pb-1 opacity-80 scale-95 transition-all duration-150 px-3" href="#">
+                        대회 관리
+                    </a>
+</li>
+<li>
+<a class="inline-flex items-center h-full text-text-sub font-label-md hover:text-primary hover:bg-primary-container/10 transition-colors duration-200 px-3" href="#">
+                        시스템 설정
+                    </a>
+</li>
+</ul>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<span class="text-body-md font-body-md text-text-sub hidden lg:block">평가자 성함</span>
+<div class="flex items-center gap-2">
+<button class="p-1.5 text-text-sub hover:text-primary hover:bg-primary-container/10 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+</button>
+<button class="p-1.5 text-text-sub hover:text-primary hover:bg-primary-container/10 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="p-1.5 text-text-sub hover:text-primary hover:bg-primary-container/10 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined text-[20px]">help</span>
+</button>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full max-w-[1440px] mx-auto px-container-padding py-8">
+<div class="mb-8">
+<h1 class="font-headline-lg text-headline-lg text-text-main mb-2">관리자 허브</h1>
+<p class="font-body-md text-body-md text-text-sub">새로운 대회 설정 및 시스템 환경 설정을 관리합니다.</p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-grid-gutter items-start">
+<!-- Competition Management Section (Left/Main Panel) -->
+<section class="lg:col-span-8 bg-surface-container-lowest border border-surface-border rounded-xl p-6 relative overflow-hidden">
+<!-- Subtle decorative background element for soft modern UI -->
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary-container opacity-5 rounded-bl-full pointer-events-none"></div>
+<div class="flex items-center gap-3 mb-6 relative z-10">
+<span class="material-symbols-outlined text-primary bg-surface-header p-2 rounded-lg">assignment_add</span>
+<h2 class="font-headline-md text-headline-md text-text-main">신규 대회 생성</h2>
+</div>
+<form class="space-y-6 relative z-10">
+<!-- Competition Title -->
+<div>
+<label class="block font-label-md text-label-md text-text-sub mb-2" for="comp-title">대회명</label>
+<input class="w-full h-row-height-standard px-input-padding-x py-input-padding-y bg-surface border border-surface-border rounded-lg text-text-main font-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" id="comp-title" placeholder="예: 3분기 지역 분석 챌린지" type="text"/>
+</div>
+<div class="border-t border-surface-border pt-6 mt-6">
+<h3 class="font-title-md text-title-md text-text-main mb-4">평가 항목 및 만점 설정</h3>
+<p class="font-body-md text-body-md text-text-sub mb-6">이 이벤트의 점수 산정 매개변수를 정의합니다. 이 제한 사항은 평가 단계에서 입력 제약 조건을 적용합니다.</p>
+<!-- 4 Input Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block font-label-md text-label-md text-text-sub mb-2" for="cat-1">기술적 정확성</label>
+<div class="relative">
+<input class="w-full h-row-height-standard px-input-padding-x py-input-padding-y bg-surface border border-surface-border rounded-lg text-text-main font-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" id="cat-1" min="0" type="number" value="100"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 font-label-md text-text-sub">점</span>
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-text-sub mb-2" for="cat-2">창의적 실행</label>
+<div class="relative">
+<input class="w-full h-row-height-standard px-input-padding-x py-input-padding-y bg-surface border border-surface-border rounded-lg text-text-main font-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" id="cat-2" min="0" type="number" value="50"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 font-label-md text-text-sub">점</span>
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-text-sub mb-2" for="cat-3">비즈니스 타당성</label>
+<div class="relative">
+<input class="w-full h-row-height-standard px-input-padding-x py-input-padding-y bg-surface border border-surface-border rounded-lg text-text-main font-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" id="cat-3" min="0" type="number" value="75"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 font-label-md text-text-sub">점</span>
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-text-sub mb-2" for="cat-4">발표 품질</label>
+<div class="relative">
+<input class="w-full h-row-height-standard px-input-padding-x py-input-padding-y bg-surface border border-surface-border rounded-lg text-text-main font-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" id="cat-4" min="0" type="number" value="25"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 font-label-md text-text-sub">점</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex justify-end pt-4">
+<button class="h-row-height-standard px-6 bg-primary text-on-primary font-label-md rounded-lg hover:bg-tertiary transition-colors flex items-center gap-2 shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                            대회 저장
+                        </button>
+</div>
+</form>
+</section>
+<!-- System Settings Section (Right/Side Panel) -->
+<section class="lg:col-span-4 flex flex-col gap-grid-gutter">
+<div class="bg-surface-container-lowest border border-surface-border rounded-xl p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary bg-surface-header p-2 rounded-lg">security</span>
+<h2 class="font-headline-md text-headline-md text-text-main">시스템 설정</h2>
+</div>
+<div class="space-y-6">
+<!-- Login Auth Type Segmented Control -->
+<div>
+<div class="flex justify-between items-center mb-3">
+<label class="font-label-md text-label-md text-text-main">로그인 인증 방식</label>
+<span class="material-symbols-outlined text-text-sub text-[16px] cursor-help" title="세션 보안 수준 결정">info</span>
+</div>
+<div class="flex bg-surface-container-low p-1 rounded-lg border border-surface-border">
+<button class="flex-1 bg-surface-container-lowest shadow-sm rounded-md py-1.5 text-center font-label-md text-primary transition-all cursor-default" type="button">
+                                    단순 모드
+                                </button>
+<button class="flex-1 text-text-sub hover:text-text-main py-1.5 text-center font-label-md transition-all" type="button">
+                                    보안 모드
+                                </button>
+</div>
+<p class="font-label-sm text-label-sm text-text-sub mt-2 leading-relaxed">
+                                단순 모드는 내부 IP 범위에 대해 MFA를 우회합니다. 보안 모드는 모든 세션에 대해 엄격한 토큰 유효성 검사를 강제합니다.
+                            </p>
+</div>
+<div class="border-t border-surface-border pt-6">
+<button class="w-full h-row-height-standard bg-surface-bright border border-surface-border text-text-main font-label-md rounded-lg hover:border-primary hover:text-primary transition-colors flex justify-center items-center gap-2" type="button">
+                                설정 적용
+                            </button>
+</div>
+</div>
+</div>
+<!-- Info Card (Decorative/Utility context) -->
+<div class="bg-surface-header rounded-xl p-5 border border-surface-border/50">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary mt-0.5">campaign</span>
+<div>
+<h4 class="font-title-md text-title-md text-text-main mb-1">시스템 상태</h4>
+<p class="font-body-md text-body-md text-text-sub text-sm">모든 평가 인스턴스가 현재 활성화되어 있으며 최적으로 작동 중입니다.</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</body></html>

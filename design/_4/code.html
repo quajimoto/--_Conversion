@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI 경진대회 평가 시스템 - 로그인</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#bfc8cc",
+                        "surface-bright": "#f8fafb",
+                        "on-primary-fixed-variant": "#004e5f",
+                        "on-tertiary-fixed-variant": "#1a4e50",
+                        "tertiary-fixed-dim": "#9ecfd1",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#8fd0e6",
+                        "on-secondary-fixed": "#001f24",
+                        "tertiary": "#336466",
+                        "surface-container-highest": "#e1e3e4",
+                        "secondary-fixed-dim": "#96d0da",
+                        "outline": "#70787c",
+                        "error": "#ba1a1a",
+                        "status-locked": "#F2F2F2",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#8fd0e6",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f2f4f5",
+                        "on-tertiary-container": "#f6ffff",
+                        "surface-container-high": "#e6e8e9",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b3ebff",
+                        "on-secondary": "#ffffff",
+                        "surface": "#f8fafb",
+                        "surface-tint": "#1e667a",
+                        "on-background": "#191c1d",
+                        "text-main": "#333333",
+                        "on-secondary-fixed-variant": "#094e57",
+                        "secondary-container": "#b2ecf7",
+                        "primary-container": "#3a7d91",
+                        "on-surface": "#191c1d",
+                        "secondary-fixed": "#b2ecf7",
+                        "surface-border": "#D0E3EA",
+                        "on-primary-container": "#fafdff",
+                        "success-mint": "#E2F3F0",
+                        "tertiary-fixed": "#b9ecee",
+                        "background": "#f8fafb",
+                        "secondary": "#2b666f",
+                        "inverse-surface": "#2e3132",
+                        "text-sub": "#666666",
+                        "surface-header": "#E8F4F8",
+                        "on-tertiary-fixed": "#002021",
+                        "surface-dim": "#d8dadb",
+                        "tertiary-container": "#4d7d7f",
+                        "on-secondary-container": "#326c76",
+                        "surface-variant": "#e1e3e4",
+                        "inverse-on-surface": "#eff1f2",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#eceeef",
+                        "on-primary-fixed": "#001f27",
+                        "on-surface-variant": "#40484b",
+                        "primary": "#1a6477",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "input-padding-x": "12px",
+                        "container-padding": "24px",
+                        "unit": "4px",
+                        "grid-gutter": "16px",
+                        "input-padding-y": "8px",
+                        "row-height-standard": "40px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Noto Sans"],
+                        "label-md": ["Noto Sans"],
+                        "headline-lg": ["Noto Sans"],
+                        "body-md": ["Noto Sans"],
+                        "label-sm": ["Noto Sans"],
+                        "headline-md": ["Noto Sans"],
+                        "title-md": ["Noto Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "title-md": ["16px", { "lineHeight": "24px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .fade-transition {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .mode-hidden {
+            display: none;
+            opacity: 0;
+        }
+        .mode-visible {
+            display: flex;
+            opacity: 1;
+        }
+        /* Custom Ambient Shadow for floating elements */
+        .ambient-shadow {
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-background min-h-screen flex items-center justify-center font-body-md text-text-main relative overflow-hidden">
+<!-- Background Decor (Subtle, professional) -->
+<div class="absolute inset-0 pointer-events-none z-0 overflow-hidden flex items-center justify-center opacity-30">
+<div class="w-[800px] h-[800px] bg-secondary-container rounded-full blur-[120px] mix-blend-multiply opacity-50 absolute top-[-200px] left-[-200px]"></div>
+<div class="w-[600px] h-[600px] bg-primary-container rounded-full blur-[100px] mix-blend-multiply opacity-30 absolute bottom-[-100px] right-[-100px]"></div>
+</div>
+<!-- Login Card Container -->
+<div class="relative z-10 w-full max-w-md bg-surface-container-lowest rounded-xl border border-surface-border ambient-shadow overflow-hidden">
+<!-- Header Area -->
+<div class="bg-surface-header border-b border-surface-border p-container-padding flex flex-col items-center justify-center">
+<div class="w-16 h-16 bg-surface-container-lowest rounded-full border border-surface-border flex items-center justify-center mb-4 text-primary">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">how_to_reg</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary text-center">AI 경진대회 평가 시스템</h1>
+<p class="font-body-md text-body-md text-text-sub mt-2">사내 경진대회 평가</p>
+</div>
+<!-- Content Area -->
+<div class="p-container-padding">
+<!-- Mode Toggle (for demonstration purposes) -->
+<div class="flex justify-center mb-8 bg-surface-container rounded-lg p-1">
+<button class="flex-1 py-1.5 px-4 rounded-md font-label-md text-label-md bg-surface-container-lowest border border-surface-border text-primary ambient-shadow transition-all" id="btn-simple-mode" onclick="toggleMode('simple')">
+                    단순 모드
+                </button>
+<button class="flex-1 py-1.5 px-4 rounded-md font-label-md text-label-md text-text-sub hover:text-primary transition-all" id="btn-secure-mode" onclick="toggleMode('secure')">
+                    보안 모드
+                </button>
+</div>
+<!-- Form Container -->
+<div class="relative min-h-[160px]">
+<!-- Simple Mode Form -->
+<form class="mode-visible flex-col gap-4 w-full fade-transition" id="form-simple">
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-main" for="evaluator-select">평가자 이름</label>
+<div class="relative">
+<select class="w-full h-row-height-standard bg-surface-container-lowest border border-surface-border rounded-lg px-input-padding-x py-input-padding-y font-body-md text-body-md text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer" id="evaluator-select">
+<option disabled="" selected="" value="">평가자를 선택하세요</option>
+<option value="eval1">홍길동 (Hong Gil-dong)</option>
+<option value="eval2">김철수 (Kim Chul-soo)</option>
+<option value="eval3">이영희 (Lee Young-hee)</option>
+<option value="eval4">박지성 (Park Ji-sung)</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-text-sub">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<button class="w-full h-row-height-standard mt-2 bg-primary text-on-primary font-title-md text-title-md rounded-lg hover:bg-surface-tint transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" type="button">
+                        입장하기
+                    </button>
+</form>
+<!-- Secure Mode Form -->
+<form class="mode-hidden flex-col gap-4 w-full absolute top-0 left-0 fade-transition" id="form-secure">
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-main" for="employee-id">사번</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-sub">
+<span class="material-symbols-outlined text-xl">badge</span>
+</div>
+<input class="w-full h-row-height-standard bg-surface-container-lowest border border-surface-border rounded-lg pl-10 pr-input-padding-x py-input-padding-y font-body-md text-body-md text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-outline" id="employee-id" placeholder="사번 입력" type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-main flex justify-between" for="password">
+<span>비밀번호</span>
+<a class="text-primary hover:underline font-label-md" href="#">Forgot?</a>
+</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-sub">
+<span class="material-symbols-outlined text-xl">lock</span>
+</div>
+<input class="w-full h-row-height-standard bg-surface-container-lowest border border-surface-border rounded-lg pl-10 pr-input-padding-x py-input-padding-y font-body-md text-body-md text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-outline" id="password" placeholder="비밀번호 입력" type="password"/>
+</div>
+</div>
+<button class="w-full h-row-height-standard mt-2 bg-primary text-on-primary font-title-md text-title-md rounded-lg hover:bg-surface-tint transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" type="button">
+                        로그인
+                    </button>
+</form>
+</div>
+<div class="mt-6 text-center">
+<p class="font-label-sm text-label-sm text-text-sub">
+                    승인된 인원만 접근 가능합니다. <br/>
+                    접속 문제가 있을 경우 <a class="text-primary hover:underline" href="#">시스템 관리자에게 문의하세요.</a>
+</p>
+</div>
+</div>
+</div>
+<script>
+        function toggleMode(mode) {
+            const formSimple = document.getElementById('form-simple');
+            const formSecure = document.getElementById('form-secure');
+            const btnSimple = document.getElementById('btn-simple-mode');
+            const btnSecure = document.getElementById('btn-secure-mode');
+
+            if (mode === 'simple') {
+                // UI Updates for Forms
+                formSecure.classList.remove('mode-visible');
+                formSecure.classList.add('mode-hidden');
+                setTimeout(() => {
+                    formSimple.classList.remove('mode-hidden');
+                    formSimple.classList.add('mode-visible');
+                }, 150); // slight delay for fade out
+
+                // UI Updates for Toggle Buttons
+                btnSimple.className = 'flex-1 py-1.5 px-4 rounded-md font-label-md text-label-md bg-surface-container-lowest border border-surface-border text-primary ambient-shadow transition-all';
+                btnSecure.className = 'flex-1 py-1.5 px-4 rounded-md font-label-md text-label-md text-text-sub hover:text-primary transition-all';
+            } else {
+                // UI Updates for Forms
+                formSimple.classList.remove('mode-visible');
+                formSimple.classList.add('mode-hidden');
+                setTimeout(() => {
+                    formSecure.classList.remove('mode-hidden');
+                    formSecure.classList.add('mode-visible');
+                }, 150); // slight delay for fade out
+
+                // UI Updates for Toggle Buttons
+                btnSecure.className = 'flex-1 py-1.5 px-4 rounded-md font-label-md text-label-md bg-surface-container-lowest border border-surface-border text-primary ambient-shadow transition-all';
+                btnSimple.className = 'flex-1 py-1.5 px-4 rounded-md font-label-md text-label-md text-text-sub hover:text-primary transition-all';
+            }
+        }
+    </script>
+</body></html>

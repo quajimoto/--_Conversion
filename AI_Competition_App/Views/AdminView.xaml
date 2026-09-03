@@ -1,0 +1,374 @@
+<UserControl x:Class="AI_Competition_App.Views.AdminView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:AI_Competition_App.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1024"
+             Background="#F8FAFB" FontFamily="Noto Sans">
+    
+    <UserControl.Resources>
+        <Style x:Key="BentoCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#D0E3EA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#D0E3EA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="RowBackground" Value="#FFFFFF"/>
+            <Setter Property="AlternatingRowBackground" Value="#F8FAFB"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#E6E8E9"/>
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+        </Style>
+        
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#E8F4F8"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="#D0E3EA"/>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" BorderThickness="0">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="Border" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="16,10" Background="Transparent" Cursor="Hand">
+                            <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#1A6477"/>
+                                <Setter Property="TextElement.Foreground" Value="#1A6477"/>
+                                <Setter Property="TextElement.FontWeight" Value="Bold"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter Property="TextElement.Foreground" Value="#666666"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="TextElement.Foreground" Value="#1A6477"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- Header & Filters -->
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Grid Grid.Row="0" Margin="24,24,24,16" MaxWidth="1400" HorizontalAlignment="Center" Width="Auto">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="관리자 허브" FontSize="24" FontWeight="Bold" Foreground="#333333"/>
+                <TextBlock Text="부서별 집계 현황 및 시스템 환경 설정을 관리합니다." FontSize="14" Foreground="#666666" Margin="0,4,0,0"/>
+            </StackPanel>
+            
+            <Border Grid.Column="1" Background="#FFFFFF" BorderBrush="#D0E3EA" BorderThickness="1" CornerRadius="8" Padding="16,8" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="부서 필터:" FontSize="12" Foreground="#666666" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox ItemsSource="{Binding Departments}" SelectedItem="{Binding SelectedDepartment}" Width="160" Height="32"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+        
+        <!-- Main Content -->
+        <TabControl Grid.Row="1" MaxWidth="1400" HorizontalAlignment="Stretch" Margin="24,0,24,24" Background="Transparent" BorderThickness="0">
+            <!-- TAB 1: 집계 현황 -->
+            <TabItem Header="부서별 집계 현황">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+                    <StackPanel>
+                        <!-- Bento Grid Summary -->
+                        <Grid Margin="0,0,0,24">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- Total Average (Spans across) -->
+                            <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Style="{StaticResource BentoCardStyle}" Margin="0,0,0,16">
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="부서 전체 평균" FontSize="16" FontWeight="Bold" Foreground="#333333"/>
+                                        <TextBlock Text="모든 항목에 걸친 종합 점수 (만점 100)" FontSize="14" Foreground="#666666" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TotalAverage, StringFormat={}{0:F1}}" FontSize="28" FontWeight="Bold" Foreground="#1A6477"/>
+                                        <TextBlock Text=" 점" FontSize="16" Foreground="#666666" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- 4 Categories -->
+                            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource BentoCardStyle}" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="실무 적용 (30)" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding PracticalAvg, StringFormat={}{0:F1}}" FontSize="20" FontWeight="Bold" Foreground="#333333"/>
+                                    <ProgressBar Value="{Binding PracticalAvg}" Maximum="30" Height="6" Margin="0,8,0,0" Foreground="#1A6477" Background="#E6E8E9" BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource BentoCardStyle}" Margin="8,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="업무 효율 (30)" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding EfficiencyAvg, StringFormat={}{0:F1}}" FontSize="20" FontWeight="Bold" Foreground="#333333"/>
+                                    <ProgressBar Value="{Binding EfficiencyAvg}" Maximum="30" Height="6" Margin="0,8,0,0" Foreground="#2B666F" Background="#E6E8E9" BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource BentoCardStyle}" Margin="8,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="혁신성 (20)" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding InnovationAvg, StringFormat={}{0:F1}}" FontSize="20" FontWeight="Bold" Foreground="#333333"/>
+                                    <ProgressBar Value="{Binding InnovationAvg}" Maximum="20" Height="6" Margin="0,8,0,0" Foreground="#336466" Background="#E6E8E9" BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="3" Style="{StaticResource BentoCardStyle}" Margin="8,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="확산 가능성 (20)" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding ScalabilityAvg, StringFormat={}{0:F1}}" FontSize="20" FontWeight="Bold" Foreground="#333333"/>
+                                    <ProgressBar Value="{Binding ScalabilityAvg}" Maximum="20" Height="6" Margin="0,8,0,0" Foreground="#3A7D91" Background="#E6E8E9" BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        
+                        <!-- Department Summary Data Grid -->
+                        <Border Style="{StaticResource BentoCardStyle}" Padding="0" CornerRadius="8" Margin="0,0,0,16">
+                            <StackPanel>
+                                <Border Background="#F8FAFB" BorderBrush="#D0E3EA" BorderThickness="0,0,0,1" Padding="16" CornerRadius="8,8,0,0">
+                                    <TextBlock Text="부서별 평가항목 집계" FontSize="16" FontWeight="Bold" Foreground="#333333"/>
+                                </Border>
+                                
+                                <DataGrid ItemsSource="{Binding DepartmentSummaryList}" MinHeight="100" BorderThickness="0">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="평가 대상 부서" Binding="{Binding DepartmentName}" Width="2*"/>
+                                        <DataGridTextColumn Header="평가 횟수" Binding="{Binding EvaluationCount}" Width="*"/>
+                                        <DataGridTextColumn Header="실무 적용 평균" Binding="{Binding PracticalAvg, StringFormat={}{0:F1}}" Width="*"/>
+                                        <DataGridTextColumn Header="업무 효율 평균" Binding="{Binding EfficiencyAvg, StringFormat={}{0:F1}}" Width="*"/>
+                                        <DataGridTextColumn Header="혁신성 평균" Binding="{Binding InnovationAvg, StringFormat={}{0:F1}}" Width="*"/>
+                                        <DataGridTextColumn Header="확산 가능성 평균" Binding="{Binding ScalabilityAvg, StringFormat={}{0:F1}}" Width="*"/>
+                                        <DataGridTextColumn Header="총점 평균" Binding="{Binding TotalAverage, StringFormat={}{0:F1}}" Width="*">
+                                            <DataGridTextColumn.CellStyle>
+                                                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                    <Setter Property="Foreground" Value="#1A6477"/>
+                                                </Style>
+                                            </DataGridTextColumn.CellStyle>
+                                        </DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Detailed Data Grid -->
+                        <Border Style="{StaticResource BentoCardStyle}" Padding="0" CornerRadius="8">
+                            <StackPanel>
+                                <Border Background="#F8FAFB" BorderBrush="#D0E3EA" BorderThickness="0,0,0,1" Padding="16" CornerRadius="8,8,0,0">
+                                    <TextBlock Text="평가자별 상세 집계" FontSize="16" FontWeight="Bold" Foreground="#333333"/>
+                                </Border>
+                                
+                                <DataGrid ItemsSource="{Binding EvaluationsList}" MinHeight="200" BorderThickness="0">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="평가 대상 부서" Binding="{Binding DepartmentName}" Width="2*"/>
+                                        <DataGridTextColumn Header="평가자 (이름)" Binding="{Binding EvaluatorName}" Width="*"/>
+                                        <DataGridTextColumn Header="실무 적용" Binding="{Binding ScorePractical}" Width="*"/>
+                                        <DataGridTextColumn Header="업무 효율" Binding="{Binding ScoreEfficiency}" Width="*"/>
+                                        <DataGridTextColumn Header="혁신성" Binding="{Binding ScoreInnovation}" Width="*"/>
+                                        <DataGridTextColumn Header="확산 가능성" Binding="{Binding ScoreScalability}" Width="*"/>
+                                        <DataGridTextColumn Header="총점" Binding="{Binding TotalScore}" Width="*">
+                                            <DataGridTextColumn.CellStyle>
+                                                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                    <Setter Property="Foreground" Value="#1A6477"/>
+                                                </Style>
+                                            </DataGridTextColumn.CellStyle>
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="상태" Binding="{Binding SubmitStatus}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- TAB 2: 대회 관리 (Placeholder based on design _3) -->
+            <TabItem Header="대회 및 시스템 설정">
+                <Grid Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Border Grid.Column="0" Style="{StaticResource BentoCardStyle}" Margin="0,0,16,0" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="신규 대회 생성" FontSize="20" FontWeight="Bold" Foreground="#333333" Margin="0,0,0,24"/>
+                            <TextBlock Text="대회명" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                            <TextBox Text="2026 AI 경진대회 2차" Height="40" Padding="12,8" BorderBrush="#D0E3EA" Margin="0,0,0,24"/>
+                            
+                            <Border BorderBrush="#D0E3EA" BorderThickness="0,1,0,0" Padding="0,24,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="평가 항목 및 만점 설정" FontSize="16" FontWeight="Bold" Foreground="#333333" Margin="0,0,0,8"/>
+                                    <TextBlock Text="이 이벤트의 점수 산정 매개변수를 정의합니다." FontSize="14" Foreground="#666666" Margin="0,0,0,24"/>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,16">
+                                            <TextBlock Text="실무 적용" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                            <TextBox Text="30" Height="40"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,16">
+                                            <TextBlock Text="업무 효율" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                            <TextBox Text="30" Height="40"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0">
+                                            <TextBlock Text="혁신성" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                            <TextBox Text="20" Height="40"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="1">
+                                            <TextBlock Text="확산 가능성" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
+                                            <TextBox Text="20" Height="40"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    
+                                    <Button Content="대회 저장" Width="120" Height="40" Background="#1A6477" Foreground="#FFFFFF" BorderThickness="0" HorizontalAlignment="Right" Margin="0,24,0,0" Cursor="Hand">
+                                        <Button.Resources>
+                                            <Style TargetType="Border">
+                                                <Setter Property="CornerRadius" Value="8"/>
+                                            </Style>
+                                        </Button.Resources>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    
+                    <Border Grid.Column="1" Style="{StaticResource BentoCardStyle}" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="시스템 설정" FontSize="20" FontWeight="Bold" Foreground="#333333" Margin="0,0,0,24"/>
+                            
+                            <TextBlock Text="로그인 인증 방식" FontSize="12" Foreground="#333333" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <Border Background="#F2F4F5" BorderBrush="#D0E3EA" BorderThickness="1" CornerRadius="8" Padding="4" Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <Border Grid.Column="0" Background="#FFFFFF" CornerRadius="4">
+                                        <TextBlock Text="단순 모드" FontSize="12" FontWeight="SemiBold" Foreground="#1A6477" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,8"/>
+                                    </Border>
+                                    <Border Grid.Column="1" Background="Transparent" CornerRadius="4">
+                                        <TextBlock Text="보안 모드" FontSize="12" Foreground="#666666" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,8"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <TextBlock Text="단순 모드는 사번 및 비밀번호 인증을 우회합니다." FontSize="11" Foreground="#666666" TextWrapping="Wrap" Margin="0,0,0,24"/>
+                            
+                            <Button Content="설정 적용" Height="40" Background="#F8FAFB" Foreground="#333333" BorderBrush="#D0E3EA" BorderThickness="1" Cursor="Hand">
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="8"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                            
+                            <!-- 부서 평가 순서 관리 -->
+                            <TextBlock Text="부서 평가 순서 등록" FontSize="14" FontWeight="Bold" Foreground="#333333" Margin="0,32,0,8"/>
+                            <TextBlock Text="목록에서 부서를 선택하고 위/아래로 이동하세요." FontSize="11" Foreground="#666666" Margin="0,0,0,8"/>
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <ListBox Grid.Column="0" ItemsSource="{Binding DepartmentOrderList}" SelectedItem="{Binding SelectedOrderDepartment}" MinHeight="100" BorderBrush="#D0E3EA" Padding="4"/>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <Button Content="▲" Command="{Binding MoveUpCommand}" Width="40" Height="40" Background="#F8FAFB" BorderBrush="#D0E3EA" BorderThickness="1" Margin="0,0,0,8" Cursor="Hand">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                    </Button>
+                                    <Button Content="▼" Command="{Binding MoveDownCommand}" Width="40" Height="40" Background="#F8FAFB" BorderBrush="#D0E3EA" BorderThickness="1" Cursor="Hand">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Department Edit Controls -->
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding InputDepartmentName, UpdateSourceTrigger=PropertyChanged}" Height="40" Margin="0,0,8,0" VerticalContentAlignment="Center" Padding="12,0"/>
+                                <Button Grid.Column="1" Content="추가" Command="{Binding AddDepartmentCommand}" Width="60" Height="40" Margin="0,0,8,0" Background="#F8FAFB" BorderBrush="#D0E3EA" BorderThickness="1" Cursor="Hand">
+                                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                </Button>
+                                <Button Grid.Column="2" Content="수정" Command="{Binding EditDepartmentCommand}" Width="60" Height="40" Margin="0,0,8,0" Background="#F8FAFB" BorderBrush="#D0E3EA" BorderThickness="1" Cursor="Hand">
+                                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                </Button>
+                                <Button Grid.Column="3" Content="삭제" Command="{Binding DeleteDepartmentCommand}" Width="60" Height="40" Background="#FFF0F0" Foreground="#D93025" BorderBrush="#FCE8E6" BorderThickness="1" Cursor="Hand">
+                                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                </Button>
+                            </Grid>
+
+                            <Button Content="순서 저장" Command="{Binding SaveOrderCommand}" Height="40" Background="#1A6477" Foreground="#FFFFFF" BorderThickness="0" Cursor="Hand">
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="8"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

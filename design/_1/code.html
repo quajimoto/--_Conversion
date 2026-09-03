@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CompEval Pro - 평가</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#bfc8cc",
+                        "surface-bright": "#f8fafb",
+                        "on-primary-fixed-variant": "#004e5f",
+                        "on-tertiary-fixed-variant": "#1a4e50",
+                        "tertiary-fixed-dim": "#9ecfd1",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#8fd0e6",
+                        "on-secondary-fixed": "#001f24",
+                        "tertiary": "#336466",
+                        "surface-container-highest": "#e1e3e4",
+                        "secondary-fixed-dim": "#96d0da",
+                        "outline": "#70787c",
+                        "error": "#ba1a1a",
+                        "status-locked": "#F2F2F2",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#8fd0e6",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f2f4f5",
+                        "on-tertiary-container": "#f6ffff",
+                        "surface-container-high": "#e6e8e9",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b3ebff",
+                        "on-secondary": "#ffffff",
+                        "surface": "#f8fafb",
+                        "surface-tint": "#1e667a",
+                        "on-background": "#191c1d",
+                        "text-main": "#333333",
+                        "on-secondary-fixed-variant": "#094e57",
+                        "secondary-container": "#b2ecf7",
+                        "primary-container": "#3a7d91",
+                        "on-surface": "#191c1d",
+                        "secondary-fixed": "#b2ecf7",
+                        "surface-border": "#D0E3EA",
+                        "on-primary-container": "#fafdff",
+                        "success-mint": "#E2F3F0",
+                        "tertiary-fixed": "#b9ecee",
+                        "background": "#f8fafb",
+                        "secondary": "#2b666f",
+                        "inverse-surface": "#2e3132",
+                        "text-sub": "#666666",
+                        "surface-header": "#E8F4F8",
+                        "on-tertiary-fixed": "#002021",
+                        "surface-dim": "#d8dadb",
+                        "tertiary-container": "#4d7d7f",
+                        "on-secondary-container": "#326c76",
+                        "surface-variant": "#e1e3e4",
+                        "inverse-on-surface": "#eff1f2",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#eceeef",
+                        "on-primary-fixed": "#001f27",
+                        "on-surface-variant": "#40484b",
+                        "primary": "#1a6477",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "input-padding-x": "12px",
+                        "container-padding": "24px",
+                        "unit": "4px",
+                        "grid-gutter": "16px",
+                        "input-padding-y": "8px",
+                        "row-height-standard": "40px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Noto Sans"],
+                        "label-md": ["Noto Sans"],
+                        "headline-lg": ["Noto Sans"],
+                        "body-md": ["Noto Sans"],
+                        "label-sm": ["Noto Sans"],
+                        "headline-md": ["Noto Sans"],
+                        "title-md": ["Noto Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "title-md": ["16px", { "lineHeight": "24px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        
+        /* Subtle styling for number inputs to hide arrows */
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-surface-header border-b border-surface-border sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-container h-row-height-standard max-w-full mx-auto">
+<div class="flex items-center gap-8">
+<!-- Brand -->
+<div class="text-title-md font-title-md text-primary tracking-tight">
+                    CompEval Pro
+                </div>
+<!-- Navigation Links -->
+<nav class="hidden md:flex gap-6 h-full items-end">
+<!-- Active Tab -->
+<a class="text-primary font-title-md border-b-2 border-primary pb-1 flex flex-col hover:bg-primary-container/10 transition-colors duration-200 opacity-80 scale-95 transition-all duration-150" href="#">
+                        평가
+                    </a>
+<!-- Inactive Tabs -->
+<a class="text-text-sub font-label-md hover:text-primary hover:bg-primary-container/10 transition-colors duration-200 pb-1 flex flex-col justify-end h-full" href="#">
+                        종합 현황
+                    </a>
+<a class="text-text-sub font-label-md hover:text-primary hover:bg-primary-container/10 transition-colors duration-200 pb-1 flex flex-col justify-end h-full" href="#">
+                        대회 관리
+                    </a>
+<a class="text-text-sub font-label-md hover:text-primary hover:bg-primary-container/10 transition-colors duration-200 pb-1 flex flex-col justify-end h-full" href="#">
+                        시스템 설정
+                    </a>
+</nav>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<span class="font-label-md text-label-md text-text-sub hidden md:block">평가자 이름</span>
+<div class="flex items-center gap-2">
+<button class="p-1 rounded hover:bg-primary-container/10 transition-colors duration-200 text-text-sub hover:text-primary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+<button class="p-1 rounded hover:bg-primary-container/10 transition-colors duration-200 text-text-sub hover:text-primary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+<button class="p-1 rounded hover:bg-primary-container/10 transition-colors duration-200 text-text-sub hover:text-primary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 0;">help</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- SideNavBar (Suppressed based on rules, TopNav used as primary) -->
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto px-container py-6">
+<div class="max-w-[1400px] mx-auto space-y-6">
+<!-- Page Header & Controls -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary">부서별 평가 입력</h1>
+<p class="font-body-md text-body-md text-text-sub mt-1">현재 리뷰 주기에 대한 점수를 입력하세요. 실무적 만점 제한이 적용됩니다.</p>
+</div>
+<div class="flex items-center gap-4 w-full md:w-auto">
+<div class="relative flex-1 md:w-64">
+<select class="w-full h-[40px] pl-3 pr-10 appearance-none bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md text-on-surface transition-colors cursor-pointer">
+<option disabled="" selected="" value="">부서 선택</option>
+<option value="eng">Engineering</option>
+<option value="mkt">Marketing</option>
+<option value="ops">Operations</option>
+<option value="hr">Human Resources</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-sub">expand_more</span>
+</div>
+<!-- Status Chip -->
+<div class="px-3 py-1 bg-surface-container rounded-full border border-surface-border flex items-center gap-2 whitespace-nowrap">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<span class="font-label-md text-label-md text-text-sub">임시 저장 모드</span>
+</div>
+</div>
+</div>
+<!-- DataGrid Container (Bento/Card Style) -->
+<div class="bg-surface-container-lowest border border-surface-border rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
+<!-- Table Header -->
+<div class="bg-surface-header border-b border-surface-border h-[40px] flex items-center px-4">
+<div class="grid grid-cols-12 w-full gap-4 font-label-md text-label-md text-text-main">
+<div class="col-span-3 flex items-center">평가자 성함</div>
+<div class="col-span-2 flex items-center justify-end group cursor-help relative">
+                                실무 적용 <span class="material-symbols-outlined text-[14px] ml-1 text-text-sub">info</span>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-inverse-surface text-inverse-on-surface px-2 py-1 rounded text-[10px] whitespace-nowrap z-10">Max Score: 25</div>
+</div>
+<div class="col-span-2 flex items-center justify-end group cursor-help relative">
+                                업무 효율 <span class="material-symbols-outlined text-[14px] ml-1 text-text-sub">info</span>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-inverse-surface text-inverse-on-surface px-2 py-1 rounded text-[10px] whitespace-nowrap z-10">Max Score: 30</div>
+</div>
+<div class="col-span-2 flex items-center justify-end group cursor-help relative">
+                                혁신성 <span class="material-symbols-outlined text-[14px] ml-1 text-text-sub">info</span>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-inverse-surface text-inverse-on-surface px-2 py-1 rounded text-[10px] whitespace-nowrap z-10">Max Score: 20</div>
+</div>
+<div class="col-span-2 flex items-center justify-end group cursor-help relative">
+                                확산 가능성 <span class="material-symbols-outlined text-[14px] ml-1 text-text-sub">info</span>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-inverse-surface text-inverse-on-surface px-2 py-1 rounded text-[10px] whitespace-nowrap z-10">Max Score: 25</div>
+</div>
+<div class="col-span-1 flex items-center justify-end">총점</div>
+</div>
+</div>
+<!-- Table Body -->
+<div class="flex-1 overflow-y-auto min-h-[300px]">
+<!-- Row 1 -->
+<div class="grid grid-cols-12 w-full gap-4 px-4 py-2 border-b border-surface-container-high hover:bg-surface-bright transition-colors group">
+<div class="col-span-3 flex items-center font-body-md text-body-md text-on-surface">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-container/20 flex items-center justify-center text-primary font-label-md">김</div>
+<div>
+<div>김철수</div>
+<div class="font-label-sm text-text-sub text-[10px]">수석 엔지니어</div>
+</div>
+</div>
+</div>
+<!-- Input cells -->
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="25" max="25" min="0" type="number" value="20"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="30" max="30" min="0" type="number" value="28"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="20" max="20" min="0" type="number" value="18"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="25" max="25" min="0" type="number" value="22"/>
+</div>
+<!-- Total -->
+<div class="col-span-1 flex items-center justify-end font-title-md text-title-md text-primary row-total">
+                                88
+                            </div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-12 w-full gap-4 px-4 py-2 border-b border-surface-container-high bg-surface-bright/50 hover:bg-surface-bright transition-colors group">
+<div class="col-span-3 flex items-center font-body-md text-body-md text-on-surface">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-tertiary-container/20 flex items-center justify-center text-tertiary font-label-md">이</div>
+<div>
+<div>이영희</div>
+<div class="font-label-sm text-text-sub text-[10px]">리드 개발자</div>
+</div>
+</div>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="25" max="25" min="0" type="number" value="24"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="30" max="30" min="0" type="number" value="29"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="20" max="20" min="0" type="number" value="15"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="25" max="25" min="0" type="number" value="20"/>
+</div>
+<div class="col-span-1 flex items-center justify-end font-title-md text-title-md text-primary row-total">
+                                88
+                            </div>
+</div>
+<!-- Row 3 (Error State Example) -->
+<div class="grid grid-cols-12 w-full gap-4 px-4 py-2 border-b border-surface-container-high hover:bg-surface-bright transition-colors group">
+<div class="col-span-3 flex items-center font-body-md text-body-md text-on-surface">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-secondary-container/30 flex items-center justify-center text-on-secondary-container font-label-md">박</div>
+<div>
+<div>박지민</div>
+<div class="font-label-sm text-text-sub text-[10px]">QA 전문가</div>
+</div>
+</div>
+</div>
+<div class="col-span-2 flex items-center justify-end relative">
+<input class="w-16 h-[32px] text-right bg-error-container/20 border border-error text-error rounded focus:border-error focus:ring-1 focus:ring-error font-body-md text-body-md transition-colors score-input" data-max="25" max="25" min="0" type="number" value="28"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="30" max="30" min="0" type="number" value="25"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="20" max="20" min="0" type="number" value="19"/>
+</div>
+<div class="col-span-2 flex items-center justify-end">
+<input class="w-16 h-[32px] text-right bg-surface-container-lowest border border-surface-border rounded focus:border-primary focus:ring-1 focus:ring-primary font-body-md text-body-md transition-colors score-input" data-max="25" max="25" min="0" type="number" value="22"/>
+</div>
+<div class="col-span-1 flex items-center justify-end font-title-md text-title-md text-error row-total">
+                                94
+                            </div>
+</div>
+</div>
+<!-- Table Footer Summary -->
+<div class="bg-surface-container-low border-t border-surface-border h-[40px] flex items-center px-4">
+<div class="w-full flex justify-between font-label-md text-label-md text-text-sub">
+<span>총 42명의 평가자 중 3명 표시 중</span>
+<div class="flex items-center gap-4">
+<span>부서 평균: <span class="font-title-md text-primary ml-1">90.0</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Fixed Footer Actions -->
+<footer class="bg-surface-container-lowest border-t border-surface-border p-4 sticky bottom-0 z-40">
+<div class="max-w-[1400px] mx-auto flex justify-between items-center px-container">
+<div>
+<span class="font-label-sm text-text-sub flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sync</span> 최종 저장: 방금 전
+                </span>
+</div>
+<div class="flex gap-4">
+<button class="h-[40px] px-6 bg-surface-container-lowest border border-surface-border rounded-lg text-text-main font-label-md hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                    임시 저장
+                </button>
+<button class="h-[40px] px-6 bg-primary text-on-primary rounded-lg font-label-md hover:bg-surface-tint transition-colors shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+                    최종 제출
+                </button>
+</div>
+</div>
+</footer>
+<!-- Client-side logic for real-time validation visual cue -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputs = document.querySelectorAll('.score-input');
+            
+            inputs.forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    const max = parseFloat(e.target.dataset.max);
+                    
+                    if (val > max || val < 0 || isNaN(val)) {
+                        e.target.classList.remove('border-surface-border', 'focus:border-primary', 'focus:ring-primary');
+                        e.target.classList.add('border-error', 'text-error', 'bg-error-container/20', 'focus:border-error', 'focus:ring-error');
+                        
+                        // Update total row style if error
+                        const row = e.target.closest('.grid');
+                        const totalEl = row.querySelector('.row-total');
+                        if(totalEl) {
+                            totalEl.classList.remove('text-primary');
+                            totalEl.classList.add('text-error');
+                        }
+                    } else {
+                        e.target.classList.add('border-surface-border', 'focus:border-primary', 'focus:ring-primary');
+                        e.target.classList.remove('border-error', 'text-error', 'bg-error-container/20', 'focus:border-error', 'focus:ring-error');
+                        
+                        // Recalculate total simply for demo
+                        const row = e.target.closest('.grid');
+                        const rowInputs = row.querySelectorAll('.score-input');
+                        let sum = 0;
+                        let hasError = false;
+                        rowInputs.forEach(inp => {
+                            const v = parseFloat(inp.value) || 0;
+                            const m = parseFloat(inp.dataset.max);
+                            if(v > m || v < 0) hasError = true;
+                            sum += v;
+                        });
+                        
+                        const totalEl = row.querySelector('.row-total');
+                        if(totalEl) {
+                            totalEl.textContent = sum;
+                            if(!hasError) {
+                                totalEl.classList.add('text-primary');
+                                totalEl.classList.remove('text-error');
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body></html>
