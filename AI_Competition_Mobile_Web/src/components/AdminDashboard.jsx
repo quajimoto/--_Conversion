@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3, LogOut, ArrowLeft, Users, Plus, Trash2, Edit2, Save, GripVertical, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import { API_BASE_URL } from '../apiConfig';
 
 const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria, setCriteria, authMode, setAuthMode }) => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleFetchResults = async () => {
     try {
-      const res = await fetch(`http://101.79.29.163:3001/api/admin/results?department=${encodeURIComponent(selectedDept)}&date=${date}`);
+      const res = await fetch(`${API_BASE_URL}/api/admin/results?department=${encodeURIComponent(selectedDept)}&date=${date}`);
       const data = await res.json();
       if (data.results) {
         setResults(data.results);
@@ -115,7 +116,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleSyncDepartments = async () => {
     try {
-      const res = await fetch('http://101.79.29.163:3001/api/departments/sync', {
+      const res = await fetch('${API_BASE_URL}/api/departments/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ departments })
@@ -130,7 +131,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleSyncCriteria = async () => {
     try {
-      const res = await fetch('http://101.79.29.163:3001/api/criteria/sync', {
+      const res = await fetch('${API_BASE_URL}/api/criteria/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ criteria })
@@ -204,7 +205,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleDownloadAllExcel = async () => {
     try {
-      const res = await fetch(`http://101.79.29.163:3001/api/admin/results?department=전체&date=${date}`);
+      const res = await fetch(`${API_BASE_URL}/api/admin/results?department=전체&date=${date}`);
       const data = await res.json();
       if (data.results) {
         const criteriaLabels = criteria.map(c => c.label);
@@ -256,7 +257,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     if (confirm(`선택하신 ${checkedResults.length}건의 평가 이력을 삭제하시겠습니까?\n(데이터베이스에는 삭제 상태로 안전하게 보관됩니다)`)) {
       try {
         const idsToDelete = checkedResults.map(index => results[index].id);
-        const res = await fetch('http://101.79.29.163:3001/api/admin/results/delete', {
+        const res = await fetch('${API_BASE_URL}/api/admin/results/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: idsToDelete })
@@ -276,7 +277,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleSyncAuthMode = async () => {
     try {
-      const res = await fetch('http://101.79.29.163:3001/api/settings', {
+      const res = await fetch('${API_BASE_URL}/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ authMode })

@@ -1,0 +1,31 @@
+services:
+  # 백엔드 API (Node.js Express)
+  - type: web
+    name: ai-competition-api
+    runtime: node
+    rootDir: AI_Competition_API
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://evaluation_lbn2_user:EtwnipY5jzAAR72hgynmK1b3eower7Qu@dpg-daliabrl550s73bchnlg-a/evaluation_lbn2
+      - key: DB_SSL
+        value: "true"
+
+  # 프론트엔드 웹 (Vite React SPA)
+  - type: web
+    name: ai-competition-web
+    runtime: static
+    rootDir: AI_Competition_Mobile_Web
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: ai-competition-api
+          property: host

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Login from './components/Login';
 import EvaluationForm from './components/EvaluationForm';
 import AdminDashboard from './components/AdminDashboard';
+import { API_BASE_URL } from './apiConfig';
 import './App.css';
 
 function App() {
@@ -17,7 +18,7 @@ function App() {
 
   useEffect(() => {
     // Fetch departments
-    fetch('http://101.79.29.163:3001/api/departments')
+    fetch(`${API_BASE_URL}/api/departments`)
       .then(res => res.json())
       .then(data => {
         if (data && data.length > 0) setDepartments(data);
@@ -29,7 +30,7 @@ function App() {
       });
 
     // Fetch criteria
-    fetch('http://101.79.29.163:3001/api/criteria')
+    fetch(`${API_BASE_URL}/api/criteria`)
       .then(res => res.json())
       .then(data => {
         if (data && data.length > 0) setCriteria(data);
@@ -43,7 +44,7 @@ function App() {
       .catch(e => console.error(e));
 
     // Fetch settings
-    fetch('http://101.79.29.163:3001/api/settings')
+    fetch(`${API_BASE_URL}/api/settings`)
       .then(res => res.json())
       .then(data => {
         if (data && data.authMode) setAuthMode(data.authMode);

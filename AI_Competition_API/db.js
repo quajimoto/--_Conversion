@@ -1,110 +1,148 @@
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 
-const dbConfig = {
-  host: 'localhost',
-  user: 'evaluation',
-  password: 'Tlsgmd1@#$',
-  port: 3306,
-  multipleStatements: true
-};
+const connectionString = process.env.DATABASE_URL || 'postgresql://evaluation_lbn2_user:EtwnipY5jzAAR72hgynmK1b3eower7Qu@dpg-daliabrl550s73bchnlg-a/evaluation_lbn2';
+
+const poolConfig = connectionString
+  ? {
+      connectionString,
+      ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+    }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      database: process.env.DB_NAME || 'evaluation',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+    };
+
+const pgPool = new Pool(poolConfig);
+
+function preparePgQuery(sql, params = []) {
+  let paramIndex = 1;
+  let convertedSql = sql;
+  let finalParams = Array.isArray(params) ? [...params] : [params];
+  
+  if (convertedSql.includes('IN (?)') || convertedSql.includes('in (?)')) {
+    convertedSql = convertedSql.replace(/IN \(\?\)/gi, '= ANY($1)');
+    if (finalParams.length === 1 && Array.isArray(finalParams[0])) {
+      finalParams = [finalParams[0]];
+    }
+  } else {
+    convertedSql = convertedSql.replace(/\?/g, () => `$${paramIndex++}`);
+  }
+
+  return { sql: convertedSql, params: finalParams };
+}
+
+async function executeQuery(clientOrPool, sql, params = []) {
+  const { sql: finalSql, params: finalParams } = preparePgQuery(sql, params);
+  const res = await clientOrPool.query(finalSql, finalParams);
+  // Add insertId property to res.rows for MySQL compatibility if returning ID
+  const rows = res.rows;
+  if (res.command === 'INSERT' && rows.length > 0 && rows[0].id) {
+    rows.insertId = rows[0].id;
+  }
+  return [rows, res];
+}
 
 async function initDB() {
   try {
-    const connection = await mysql.createConnection(dbConfig);
+    const client = await pgPool.connect();
     
-    // 2. Switch to the database
-    await connection.query('USE evaluation');
-    
-    // 3. Create tables
-    await connection.query(`
+    // Create tables in PostgreSQL
+    await client.query(`
       CREATE TABLE IF NOT EXISTS departments (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
         order_index INT NOT NULL DEFAULT 0
-      )
+      );
     `);
-    
-    await connection.query(`
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS criteria (
         id VARCHAR(50) PRIMARY KEY,
         label VARCHAR(255) NOT NULL,
         description VARCHAR(255),
         max_score INT NOT NULL DEFAULT 10,
         order_index INT NOT NULL DEFAULT 0
-      )
+      );
     `);
-    
-    await connection.query(`
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS evaluations (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         evaluator_name VARCHAR(255) NOT NULL,
         department_name VARCHAR(255) NOT NULL,
         eval_date DATE NOT NULL,
         total_score INT NOT NULL DEFAULT 0,
         is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS evaluation_scores (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        evaluation_id INT NOT NULL,
-        criterion_id VARCHAR(50) NOT NULL,
-        score INT NOT NULL,
-        FOREIGN KEY (evaluation_id) REFERENCES evaluations(id) ON DELETE CASCADE,
-        FOREIGN KEY (criterion_id) REFERENCES criteria(id) ON DELETE CASCADE
-      )
+      );
     `);
 
-    // 4. Create Users table
-    await connection.query(`
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS evaluation_scores (
+        id SERIAL PRIMARY KEY,
+        evaluation_id INT NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
+        criterion_id VARCHAR(50) NOT NULL REFERENCES criteria(id) ON DELETE CASCADE,
+        score INT NOT NULL
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         emp_id VARCHAR(50) PRIMARY KEY,
         password VARCHAR(255) NOT NULL,
         name VARCHAR(50) NOT NULL,
         role VARCHAR(20) NOT NULL DEFAULT 'USER'
-      )
+      );
     `);
 
-    // Create Settings table
-    await connection.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS settings (
         setting_key VARCHAR(50) PRIMARY KEY,
         setting_value VARCHAR(255) NOT NULL
-      )
-    `);
-    await connection.query(`
-      INSERT IGNORE INTO settings (setting_key, setting_value) VALUES ('authMode', 'LIST')
+      );
     `);
 
-    // 5. Seed default admin if table is empty
-    const [userRows] = await connection.query('SELECT emp_id FROM users WHERE emp_id = "admin"');
-    if (userRows.length === 0) {
-      await connection.query(`
-        INSERT INTO users (emp_id, password, name, role) 
-        VALUES ('admin', 'admin', '관리자', 'ADMIN')
-      `);
-      console.log('Default admin user created.');
-    }
-    
-    console.log('All tables checked/created.');
-    await connection.end();
+    // Seed default settings and admin
+    await client.query(`
+      INSERT INTO settings (setting_key, setting_value)
+      VALUES ('authMode', 'LIST')
+      ON CONFLICT (setting_key) DO NOTHING;
+    `);
+
+    await client.query(`
+      INSERT INTO users (emp_id, password, name, role)
+      VALUES ('admin', 'admin', '관리자', 'ADMIN')
+      ON CONFLICT (emp_id) DO NOTHING;
+    `);
+
+    console.log('PostgreSQL tables checked/created.');
+    client.release();
   } catch (error) {
-    console.error('DB Initialization failed:', error);
+    console.error('PostgreSQL Initialization failed:', error);
   }
 }
 
-// Create connection pool for app
-const pool = mysql.createPool({
-  ...dbConfig,
-  database: 'evaluation',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+// Wrapper pool matching mysql2 API format for server.js compatibility
+const poolWrapper = {
+  query: (sql, params) => executeQuery(pgPool, sql, params),
+  
+  getConnection: async () => {
+    const client = await pgPool.connect();
+    return {
+      query: (sql, params) => executeQuery(client, sql, params),
+      beginTransaction: () => client.query('BEGIN'),
+      commit: () => client.query('COMMIT'),
+      rollback: () => client.query('ROLLBACK'),
+      release: () => client.release()
+    };
+  }
+};
 
 module.exports = {
   initDB,
-  pool
+  pool: poolWrapper
 };

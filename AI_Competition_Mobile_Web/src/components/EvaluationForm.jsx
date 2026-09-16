@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Save, CheckCircle, LogOut, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../apiConfig';
 
 const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
 
   const submitToAPI = async () => {
     try {
-      await fetch('http://101.79.29.163:3001/api/evaluation/submit', {
+      await fetch(`${API_BASE_URL}/api/evaluation/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

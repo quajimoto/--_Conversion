@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn } from 'lucide-react';
+import { API_BASE_URL } from '../apiConfig';
 
 const Login = ({ onLogin, authMode }) => {
   const [selectedUser, setSelectedUser] = useState('');
@@ -22,7 +23,7 @@ const Login = ({ onLogin, authMode }) => {
     e.preventDefault();
     if (empId && password) {
       try {
-        const res = await fetch('http://101.79.29.163:3001/api/login', {
+        const res = await fetch(`${API_BASE_URL}/api/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ empId, password })

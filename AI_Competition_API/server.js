@@ -44,7 +44,7 @@ app.post('/api/settings', async (req, res) => {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
     for (const [key, value] of Object.entries(settings)) {
-      await connection.query('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', [key, value, value]);
+      await connection.query('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value', [key, value]);
     }
     await connection.commit();
     connection.release();
@@ -150,10 +150,10 @@ app.post('/api/evaluation/submit', async (req, res) => {
     // Insert into evaluations master
     const [evalResult] = await connection.query(`
       INSERT INTO evaluations (evaluator_name, department_name, eval_date, total_score)
-      VALUES (?, ?, ?, ?)
+      VALUES (?, ?, ?, ?) RETURNING id
     `, [evaluator_name || '익명', department_name, eval_date, total_score || 0]);
 
-    const evalId = evalResult.insertId;
+    const evalId = evalResult[0]?.id || evalResult.insertId;
 
     // Insert detailed scores
     if (scores) {
