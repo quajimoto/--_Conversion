@@ -303,7 +303,20 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
             className="input-field" 
             style={{ padding: '4px 8px', fontSize: '12px', width: 'auto', border: 'none', backgroundColor: 'var(--surface-container-low)', fontWeight: 'bold' }}
             value={authMode} 
-            onChange={(e) => setAuthMode(e.target.value)}
+            onChange={async (e) => {
+              const newMode = e.target.value;
+              setAuthMode(newMode);
+              localStorage.setItem('authMode', newMode);
+              try {
+                await fetch(`${API_BASE_URL}/api/settings`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ authMode: newMode })
+                });
+              } catch(err) {
+                console.error(err);
+              }
+            }}
           >
             <option value="LIST">로그인 리스트 선택</option>
             <option value="ID_PW">로그인 ID/PW</option>
