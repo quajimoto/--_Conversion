@@ -3,6 +3,7 @@ services:
   - type: web
     name: ai-competition-api
     runtime: node
+    plan: free
     rootDir: AI_Competition_API
     buildCommand: npm install
     startCommand: node server.js
@@ -16,6 +17,7 @@ services:
   - type: web
     name: ai-competition-web
     runtime: static
+    plan: free
     rootDir: AI_Competition_Mobile_Web
     buildCommand: npm install && npm run build
     staticPublishPath: dist
