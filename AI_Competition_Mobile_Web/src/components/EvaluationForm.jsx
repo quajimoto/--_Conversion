@@ -174,8 +174,8 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
 
       <div className="container">
         {/* Date and Department Select */}
-        <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px' }}>
-          <div style={{ flex: 1 }}>
+        <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 140px' }}>
             <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 일자</label>
             <input 
               type="date" 
@@ -185,7 +185,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
               disabled={status === 'SUBMITTED'}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: '1 1 140px' }}>
             <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 부서</label>
             <select 
               className="input-field" 
@@ -202,7 +202,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
         </div>
 
         {/* Score Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${criteria?.length || 4}, 1fr)`, gap: '8px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '24px' }}>
           {criteria?.map((c) => (
             <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: status === 'SUBMITTED' ? 'var(--status-locked)' : 'var(--surface-container-lowest)' }}>
               <div>
@@ -263,19 +263,19 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
             {completedEvaluations.map((evalData, idx) => (
               <div key={idx} style={{ opacity: 0.7 }}>
                 {/* Completed Date and Department */}
-                <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px', backgroundColor: 'var(--surface-container-low)' }}>
-                  <div style={{ flex: 1 }}>
+                <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', backgroundColor: 'var(--surface-container-low)' }}>
+                  <div style={{ flex: '1 1 140px' }}>
                     <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 일자</label>
                     <input type="date" className="input-field" value={evalData.date} disabled style={{ backgroundColor: '#e9ecef' }} />
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: '1 1 140px' }}>
                     <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 부서</label>
                     <input type="text" className="input-field" value={evalData.department} disabled style={{ backgroundColor: '#e9ecef' }} />
                   </div>
                 </div>
 
                 {/* Completed Score Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${criteria?.length || 4}, 1fr)`, gap: '8px', marginBottom: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '16px' }}>
                   {criteria?.map((c) => (
                     <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'var(--status-locked)' }}>
                       <div>

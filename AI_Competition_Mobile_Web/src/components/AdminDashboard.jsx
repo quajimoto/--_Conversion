@@ -116,7 +116,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleSyncDepartments = async () => {
     try {
-      const res = await fetch('${API_BASE_URL}/api/departments/sync', {
+      const res = await fetch(`${API_BASE_URL}/api/departments/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ departments })
@@ -131,7 +131,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleSyncCriteria = async () => {
     try {
-      const res = await fetch('${API_BASE_URL}/api/criteria/sync', {
+      const res = await fetch(`${API_BASE_URL}/api/criteria/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ criteria })
@@ -257,7 +257,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     if (confirm(`선택하신 ${checkedResults.length}건의 평가 이력을 삭제하시겠습니까?\n(데이터베이스에는 삭제 상태로 안전하게 보관됩니다)`)) {
       try {
         const idsToDelete = checkedResults.map(index => results[index].id);
-        const res = await fetch('${API_BASE_URL}/api/admin/results/delete', {
+        const res = await fetch(`${API_BASE_URL}/api/admin/results/delete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: idsToDelete })
@@ -277,7 +277,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleSyncAuthMode = async () => {
     try {
-      const res = await fetch('${API_BASE_URL}/api/settings', {
+      const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ authMode })
@@ -292,12 +292,12 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   return (
     <div style={{ paddingBottom: '40px' }}>
-      <header style={{ backgroundColor: 'var(--surface-header)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--surface-border)' }}>
+      <header style={{ backgroundColor: 'var(--surface-header)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--surface-border)', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={() => navigate('/evaluation')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><ArrowLeft size={20} color="var(--primary)" /></button>
           <h2 className="title-md">관리자 메뉴</h2>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <select 
             className="input-field" 
             style={{ padding: '4px 8px', fontSize: '12px', width: 'auto', border: 'none', backgroundColor: 'var(--surface-container-low)', fontWeight: 'bold' }}
@@ -310,7 +310,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
           </select>
           <button 
             className="btn btn-secondary" 
-            style={{ padding: '4px 8px', fontSize: '12px', height: '100%', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+            style={{ padding: '4px 8px', fontSize: '12px', minHeight: '32px', height: 'auto', borderColor: 'var(--primary)', color: 'var(--primary)' }}
             onClick={handleSyncAuthMode}
           >
             저장
@@ -320,21 +320,21 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         </div>
       </header>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--surface-border)', backgroundColor: 'var(--surface-container-lowest)' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--surface-border)', backgroundColor: 'var(--surface-container-lowest)', flexWrap: 'wrap' }}>
         <button 
-          style={{ flex: 1, padding: '12px', background: 'none', border: 'none', borderBottom: activeTab === 'RESULTS' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'RESULTS' ? 'var(--primary)' : 'var(--text-sub)', fontWeight: 'bold' }}
+          style={{ flex: '1 1 100px', padding: '12px', background: 'none', border: 'none', borderBottom: activeTab === 'RESULTS' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'RESULTS' ? 'var(--primary)' : 'var(--text-sub)', fontWeight: 'bold' }}
           onClick={() => setActiveTab('RESULTS')}
         >
           집계 현황
         </button>
         <button 
-          style={{ flex: 1, padding: '12px', background: 'none', border: 'none', borderBottom: activeTab === 'DEPARTMENTS' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'DEPARTMENTS' ? 'var(--primary)' : 'var(--text-sub)', fontWeight: 'bold' }}
+          style={{ flex: '1 1 100px', padding: '12px', background: 'none', border: 'none', borderBottom: activeTab === 'DEPARTMENTS' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'DEPARTMENTS' ? 'var(--primary)' : 'var(--text-sub)', fontWeight: 'bold' }}
           onClick={() => setActiveTab('DEPARTMENTS')}
         >
           부서 관리
         </button>
         <button 
-          style={{ flex: 1, padding: '12px', background: 'none', border: 'none', borderBottom: activeTab === 'CRITERIA' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'CRITERIA' ? 'var(--primary)' : 'var(--text-sub)', fontWeight: 'bold' }}
+          style={{ flex: '1 1 100px', padding: '12px', background: 'none', border: 'none', borderBottom: activeTab === 'CRITERIA' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'CRITERIA' ? 'var(--primary)' : 'var(--text-sub)', fontWeight: 'bold' }}
           onClick={() => setActiveTab('CRITERIA')}
         >
           항목 관리
@@ -345,12 +345,12 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         {activeTab === 'RESULTS' && (
           <>
             <div className="card" style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 140px' }}>
                   <label className="label-md" style={{ display: 'block', marginBottom: '4px' }}>날짜 선택</label>
                   <input type="date" className="input-field" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: '1 1 140px' }}>
                   <label className="label-md" style={{ display: 'block', marginBottom: '4px' }}>부서 선택</label>
                   <select 
                     className="input-field" 
@@ -366,16 +366,16 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                   </select>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleFetchResults}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" style={{ flex: '1 1 100px' }} onClick={handleFetchResults}>
                   <BarChart3 size={18} />
                   조회
                 </button>
-                <button className="btn btn-secondary" style={{ flex: 1, backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadExcel}>
+                <button className="btn btn-secondary" style={{ flex: '1 1 120px', backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadExcel}>
                   <Download size={18} />
                   선택부서 다운
                 </button>
-                <button className="btn btn-secondary" style={{ flex: 1, backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadAllExcel}>
+                <button className="btn btn-secondary" style={{ flex: '1 1 120px', backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadAllExcel}>
                   <Download size={18} />
                   전체 다운
                 </button>
@@ -384,7 +384,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
             <div className="card" style={{ marginBottom: '16px', backgroundColor: 'var(--surface-header)', borderColor: 'var(--primary)' }}>
               <h3 className="title-md" style={{ marginBottom: '12px', color: 'var(--primary)' }}>{selectedDept || '부서'} 총점 평균</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                 {criteria?.map(c => (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span className="body-md">{c.label}</span><span className="title-md">{averages[c.id] || 0}</span>
@@ -397,20 +397,20 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <button 
                 className={summaryMode === 'DETAIL' ? 'btn btn-primary' : 'btn btn-secondary'} 
-                style={{ flex: 1, padding: '8px', fontSize: '12px' }}
+                style={{ flex: '1 1 90px', padding: '8px', fontSize: '12px' }}
                 onClick={() => setSummaryMode('DETAIL')}
               >상세 내역</button>
               <button 
                 className={summaryMode === 'BY_DEPT' ? 'btn btn-primary' : 'btn btn-secondary'} 
-                style={{ flex: 1, padding: '8px', fontSize: '12px' }}
+                style={{ flex: '1 1 90px', padding: '8px', fontSize: '12px' }}
                 onClick={() => setSummaryMode('BY_DEPT')}
               >부서별 집계</button>
               <button 
                 className={summaryMode === 'BY_EVALUATOR' ? 'btn btn-primary' : 'btn btn-secondary'} 
-                style={{ flex: 1, padding: '8px', fontSize: '12px' }}
+                style={{ flex: '1 1 90px', padding: '8px', fontSize: '12px' }}
                 onClick={() => setSummaryMode('BY_EVALUATOR')}
               >평가자별 집계</button>
             </div>
