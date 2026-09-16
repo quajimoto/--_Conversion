@@ -40,18 +40,23 @@ app.get('/api/settings', async (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const settings = req.body;
+  const connection = await pool.getConnection();
   try {
-    const connection = await pool.getConnection();
     await connection.beginTransaction();
     for (const [key, value] of Object.entries(settings)) {
-      await connection.query('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value', [key, value]);
+      await connection.query(
+        'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value',
+        [key, String(value)]
+      );
     }
     await connection.commit();
-    connection.release();
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
+    await connection.rollback();
+    console.error('Settings save error:', error);
     res.status(500).json({ error: 'DB Error' });
+  } finally {
+    connection.release();
   }
 });
 

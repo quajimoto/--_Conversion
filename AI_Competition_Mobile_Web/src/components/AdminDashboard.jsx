@@ -277,16 +277,17 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const handleSyncAuthMode = async () => {
     try {
+      localStorage.setItem('authMode', authMode);
       const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ authMode })
       });
-      if (res.ok) alert('로그인 방식이 저장되었습니다.');
+      if (res.ok) alert('로그인 방식이 성공적으로 저장되었습니다.');
       else alert('저장에 실패했습니다.');
     } catch(e) {
       console.error(e);
-      alert('서버 연결 실패');
+      alert('서버 연결 실패 (로컬 저장이 적용되었습니다)');
     }
   };
 

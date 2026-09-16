@@ -8,7 +8,12 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null); // null, { name, role: 'USER' | 'ADMIN' }
-  const [authMode, setAuthMode] = useState('LIST'); // 'LIST', 'ID_PW', 'NAME'
+  const [authMode, setAuthModeState] = useState(() => localStorage.getItem('authMode') || 'LIST');
+
+  const setAuthMode = (mode) => {
+    setAuthModeState(mode);
+    localStorage.setItem('authMode', mode);
+  };
   
   // Manage departments state
   const [departments, setDepartments] = useState([]);
@@ -47,7 +52,10 @@ function App() {
     fetch(`${API_BASE_URL}/api/settings`)
       .then(res => res.json())
       .then(data => {
-        if (data && data.authMode) setAuthMode(data.authMode);
+        if (data && data.authMode) {
+          setAuthModeState(data.authMode);
+          localStorage.setItem('authMode', data.authMode);
+        }
       })
       .catch(e => console.error(e));
   }, []);
