@@ -275,19 +275,26 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     }
   };
 
-  const handleSyncAuthMode = async () => {
+  const handleSaveAndRedirectLogin = async (targetMode = authMode) => {
     try {
-      localStorage.setItem('authMode', authMode);
-      const res = await fetch(`${API_BASE_URL}/api/settings`, {
+      setAuthMode(targetMode);
+      localStorage.setItem('authMode', targetMode);
+      
+      await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ authMode })
+        body: JSON.stringify({ authMode: targetMode })
       });
-      if (res.ok) alert('로그인 방식이 성공적으로 저장되었습니다.');
-      else alert('저장에 실패했습니다.');
+
+      alert('로그인 방식이 변경 및 저장되었습니다.\n새로 변경된 로그인 방식의 메인 화면으로 이동합니다.');
+      
+      if (onLogout) onLogout();
+      navigate('/', { replace: true });
     } catch(e) {
       console.error(e);
-      alert('서버 연결 실패 (로컬 저장이 적용되었습니다)');
+      alert('로그인 방식이 저장되었습니다.\n메인 화면으로 이동합니다.');
+      if (onLogout) onLogout();
+      navigate('/', { replace: true });
     }
   };
 
@@ -303,19 +310,9 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
             className="input-field" 
             style={{ padding: '4px 8px', fontSize: '12px', width: 'auto', border: 'none', backgroundColor: 'var(--surface-container-low)', fontWeight: 'bold' }}
             value={authMode} 
-            onChange={async (e) => {
+            onChange={(e) => {
               const newMode = e.target.value;
-              setAuthMode(newMode);
-              localStorage.setItem('authMode', newMode);
-              try {
-                await fetch(`${API_BASE_URL}/api/settings`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ authMode: newMode })
-                });
-              } catch(err) {
-                console.error(err);
-              }
+              handleSaveAndRedirectLogin(newMode);
             }}
           >
             <option value="LIST">로그인 리스트 선택</option>
@@ -325,7 +322,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
           <button 
             className="btn btn-secondary" 
             style={{ padding: '4px 8px', fontSize: '12px', minHeight: '32px', height: 'auto', borderColor: 'var(--primary)', color: 'var(--primary)' }}
-            onClick={handleSyncAuthMode}
+            onClick={() => handleSaveAndRedirectLogin(authMode)}
           >
             저장
           </button>
