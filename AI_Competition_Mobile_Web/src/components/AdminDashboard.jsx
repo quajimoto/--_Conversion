@@ -281,21 +281,26 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     }
   };
 
-  const handleSaveAndRedirectLogin = (targetMode) => {
+  const handleSaveAndRedirectLogin = async (targetMode) => {
     const modeToSave = targetMode || selectedAuthMode || authMode || 'LIST';
     
     // 1. Synchronously set localStorage and React state
     localStorage.setItem('authMode', modeToSave);
     if (setAuthMode) setAuthMode(modeToSave);
     
-    // 2. Non-blocking API sync
-    fetch(`${API_BASE_URL}/api/settings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ authMode: modeToSave })
-    }).catch(err => console.error('API Sync Error:', err));
+    // 2. Await API sync to ensure database is updated BEFORE browser navigates!
+    try {
+      await fetch(`${API_BASE_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authMode: modeToSave }),
+        keepalive: true
+      });
+    } catch(err) {
+      console.error('API Sync Error:', err);
+    }
 
-    // 3. Instantly logout and redirect to main login page
+    // 3. Logout and redirect to main login page
     if (onLogout) onLogout();
     window.location.href = '/';
   };
