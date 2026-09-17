@@ -3,6 +3,7 @@ import { LogIn } from 'lucide-react';
 import { API_BASE_URL } from '../apiConfig';
 
 const Login = ({ onLogin, authMode }) => {
+  const currentMode = authMode || localStorage.getItem('authMode') || 'LIST';
   const [selectedUser, setSelectedUser] = useState('');
   const [empId, setEmpId] = useState('');
   const [password, setPassword] = useState('');
@@ -62,7 +63,7 @@ const Login = ({ onLogin, authMode }) => {
           <p className="body-md" style={{ color: 'var(--text-sub)' }}>평가 및 집계 시스템</p>
         </div>
 
-        {authMode === 'LIST' && (
+        {currentMode === 'LIST' && (
           <form onSubmit={handleSimpleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
               <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가자 이름 선택</label>
@@ -84,7 +85,7 @@ const Login = ({ onLogin, authMode }) => {
           </form>
         )}
         
-        {authMode === 'ID_PW' && (
+        {currentMode === 'ID_PW' && (
           <form onSubmit={handleSecureLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
               <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>사번</label>
@@ -113,7 +114,7 @@ const Login = ({ onLogin, authMode }) => {
           </form>
         )}
         
-        {authMode === 'NAME' && (
+        {currentMode === 'NAME' && (
           <form onSubmit={handleNameLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
               <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>본인 이름 직접 입력</label>

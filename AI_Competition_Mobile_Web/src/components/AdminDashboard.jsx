@@ -275,27 +275,23 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     }
   };
 
-  const handleSaveAndRedirectLogin = async (targetMode = authMode) => {
-    try {
-      setAuthMode(targetMode);
-      localStorage.setItem('authMode', targetMode);
-      
-      await fetch(`${API_BASE_URL}/api/settings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ authMode: targetMode })
-      });
+  const handleSaveAndRedirectLogin = (targetMode) => {
+    const modeToSave = targetMode || authMode;
+    
+    // 1. Synchronously set localStorage and React state
+    localStorage.setItem('authMode', modeToSave);
+    if (setAuthMode) setAuthMode(modeToSave);
+    
+    // 2. Non-blocking API sync
+    fetch(`${API_BASE_URL}/api/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authMode: modeToSave })
+    }).catch(err => console.error('API Sync Error:', err));
 
-      alert('로그인 방식이 변경 및 저장되었습니다.\n새로 변경된 로그인 방식의 메인 화면으로 이동합니다.');
-      
-      if (onLogout) onLogout();
-      navigate('/', { replace: true });
-    } catch(e) {
-      console.error(e);
-      alert('로그인 방식이 저장되었습니다.\n메인 화면으로 이동합니다.');
-      if (onLogout) onLogout();
-      navigate('/', { replace: true });
-    }
+    // 3. Instantly logout and redirect to main login page
+    if (onLogout) onLogout();
+    navigate('/', { replace: true });
   };
 
   return (
