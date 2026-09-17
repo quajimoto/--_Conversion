@@ -53,8 +53,11 @@ function App() {
       .then(res => res.json())
       .then(data => {
         if (data && data.authMode) {
-          setAuthModeState(data.authMode);
-          localStorage.setItem('authMode', data.authMode);
+          const currentLocal = localStorage.getItem('authMode');
+          if (currentLocal !== data.authMode) {
+            setAuthModeState(data.authMode);
+            localStorage.setItem('authMode', data.authMode);
+          }
         }
       })
       .catch(e => console.error(e));
