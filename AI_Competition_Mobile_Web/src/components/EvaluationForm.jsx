@@ -40,6 +40,13 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     };
   }, []);
 
+  // Ensure department is automatically defaulted to first department when loaded
+  useEffect(() => {
+    if (!department && departments && departments.length > 0) {
+      setDepartment(departments[0]);
+    }
+  }, [departments, department]);
+
   const [evaluationDate, setEvaluationDate] = useState(() => {
     const tzOffset = new Date().getTimezoneOffset() * 60000;
     return new Date(Date.now() - tzOffset).toISOString().split('T')[0];
@@ -101,10 +108,12 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const handleSave = () => {
-    if (!department) {
-      alert('임시저장할 부서를 먼저 선택해주세요.');
+    const targetDept = department || departments?.[0] || '';
+    if (!targetDept) {
+      alert('등록된 부서가 없습니다.');
       return;
     }
+    if (!department) setDepartment(targetDept);
     if (!checkZeroScoresAndConfirm()) return;
 
     const currentDrafts = getSavedDrafts();
@@ -112,18 +121,18 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     const timeString = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     const newDraft = {
-      department,
+      department: targetDept,
       date: evaluationDate,
       scores: { ...scores },
       totalScore,
       savedAt: timeString
     };
 
-    currentDrafts[department] = newDraft;
+    currentDrafts[targetDept] = newDraft;
     localStorage.setItem(getTempStorageKey(), JSON.stringify(currentDrafts));
     setSavedDrafts({ ...currentDrafts });
     setStatus('TEMP');
-    alert(`[${department}] 평가 내용이 성공적으로 임시저장되었습니다.\n언제든 [불러오기] 메뉴에서 다시 불러올 수 있습니다.`);
+    alert(`[${targetDept}] 평가 내용이 성공적으로 임시저장되었습니다.\n언제든 [불러오기] 메뉴에서 다시 불러올 수 있습니다.`);
   };
 
   const handleOpenLoadModal = () => {
@@ -172,14 +181,14 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     setIsLoadModalOpen(false);
   };
 
-  const submitToAPI = async () => {
+  const submitToAPI = async (targetDept) => {
     try {
       await fetch(`${API_BASE_URL}/api/evaluation/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           evaluator_name: user?.name || '익명',
-          department_name: department,
+          department_name: targetDept || department,
           eval_date: evaluationDate,
           total_score: totalScore,
           scores: scores
@@ -207,28 +216,41 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const handleNextDepartment = async () => {
-    if (!department) {
-      alert('부서를 선택해주세요.');
+    const targetDept = department || departments?.[0] || '';
+    if (!targetDept) {
+      alert('등록된 부서가 없습니다. 관리자 메뉴에서 부서를 먼저 등록해주세요.');
       return;
     }
+
+    if (!department) {
+      setDepartment(targetDept);
+    }
+
+    // 0점 / 미입력 항목 확인
     if (!checkZeroScoresAndConfirm()) return;
-    if (!confirm('평가를 최종 제출하시겠습니까? 제출 후에는 수정이 불가합니다.')) {
-      return;
+
+    // 최종 제출 전 한 번 더 확인 확인창
+    const isConfirmed = confirm(
+      `[${targetDept}] 부서의 평가를 최종 제출하시겠습니까?\n작성하신 점수를 한 번 더 확인해 주세요.\n\n(확인: 최종 저장 및 제출 / 취소: 현재 화면 유지)`
+    );
+
+    if (!isConfirmed) {
+      return; // 취소 클릭 시 아무것도 변경하지 않고 현재 화면 유지
     }
     
-    await submitToAPI();
+    await submitToAPI(targetDept);
 
     // Clean up temporary draft for this department upon final submit
     const currentDrafts = getSavedDrafts();
-    if (currentDrafts[department]) {
-      delete currentDrafts[department];
+    if (currentDrafts[targetDept]) {
+      delete currentDrafts[targetDept];
       localStorage.setItem(getTempStorageKey(), JSON.stringify(currentDrafts));
       setSavedDrafts({ ...currentDrafts });
     }
 
     const newCompleted = [{
       date: evaluationDate,
-      department,
+      department: targetDept,
       scores,
       totalScore
     }, ...completedEvaluations];
@@ -242,7 +264,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     });
     setStatus('DRAFT');
     
-    const nextDept = getNextUnevaluatedDepartment(department, newCompleted);
+    const nextDept = getNextUnevaluatedDepartment(targetDept, newCompleted);
     if (nextDept) {
       setDepartment(nextDept);
     } else {
@@ -252,24 +274,27 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const handleSkipNext = async () => {
-    if (!department) {
-      alert('부서를 선택해주세요.');
+    const targetDept = department || departments?.[0] || '';
+    if (!targetDept) {
+      alert('등록된 부서가 없습니다.');
       return;
     }
+    if (!department) setDepartment(targetDept);
+
     if (!checkZeroScoresAndConfirm()) return;
-    await submitToAPI();
+    await submitToAPI(targetDept);
 
     // Clean up temporary draft for this department upon final submit
     const currentDrafts = getSavedDrafts();
-    if (currentDrafts[department]) {
-      delete currentDrafts[department];
+    if (currentDrafts[targetDept]) {
+      delete currentDrafts[targetDept];
       localStorage.setItem(getTempStorageKey(), JSON.stringify(currentDrafts));
       setSavedDrafts({ ...currentDrafts });
     }
 
     const newCompleted = [{
       date: evaluationDate,
-      department,
+      department: targetDept,
       scores: { ...scores },
       totalScore
     }, ...completedEvaluations];
@@ -283,7 +308,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     });
     setStatus('DRAFT');
     
-    const nextDept = getNextUnevaluatedDepartment(department, newCompleted);
+    const nextDept = getNextUnevaluatedDepartment(targetDept, newCompleted);
     if (nextDept) {
       setDepartment(nextDept);
     } else {
