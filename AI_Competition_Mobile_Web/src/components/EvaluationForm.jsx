@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Save, CheckCircle, LogOut, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, CheckCircle, LogOut, ArrowRight, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../apiConfig';
 
@@ -7,6 +7,23 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const navigate = useNavigate();
   
   const [department, setDepartment] = useState(() => departments?.[0] || '');
+  const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(false);
+  const deptDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (deptDropdownRef.current && !deptDropdownRef.current.contains(event.target)) {
+        setIsDeptDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
+
   const [evaluationDate, setEvaluationDate] = useState(() => {
     const tzOffset = new Date().getTimezoneOffset() * 60000;
     return new Date(Date.now() - tzOffset).toISOString().split('T')[0];
@@ -20,7 +37,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const [status, setStatus] = useState('DRAFT'); // DRAFT, TEMP, SUBMITTED
   const [completedEvaluations, setCompletedEvaluations] = useState([]);
 
-  const inputRefs = React.useRef({});
+  const inputRefs = useRef({});
 
   const checkZeroScoresAndConfirm = () => {
     // Find criteria with 0 points or empty values (undefined, null, '', 0, '0')
@@ -209,7 +226,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
 
       <div className="container">
         {/* Date and Department Select */}
-        <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', position: 'relative', zIndex: isDeptDropdownOpen ? 50 : 1 }}>
           <div style={{ flex: '1 1 140px' }}>
             <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 일자</label>
             <input 
@@ -220,19 +237,113 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
               disabled={status === 'SUBMITTED'}
             />
           </div>
-          <div style={{ flex: '1 1 140px' }}>
+          <div style={{ flex: '1 1 140px', position: 'relative' }} ref={deptDropdownRef}>
             <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 부서</label>
-            <select 
+            
+            {/* Custom Dropdown Trigger */}
+            <button 
+              type="button"
               className="input-field" 
-              value={department} 
-              onChange={(e) => setDepartment(e.target.value)}
               disabled={status === 'SUBMITTED'}
+              onClick={() => {
+                if (status !== 'SUBMITTED') {
+                  setIsDeptDropdownOpen(prev => !prev);
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                cursor: status === 'SUBMITTED' ? 'not-allowed' : 'pointer',
+                backgroundColor: status === 'SUBMITTED' ? '#e9ecef' : 'white',
+                textAlign: 'left',
+                padding: '10px 14px',
+                userSelect: 'none',
+                WebkitTapHighlightColor: 'transparent'
+              }}
             >
-              <option value="">부서 선택</option>
-              {departments?.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+              <span style={{ color: department ? 'var(--text-main)' : 'var(--text-sub)' }}>
+                {department || '부서 선택'}
+              </span>
+              <ChevronDown 
+                size={18} 
+                color="var(--text-sub)" 
+                style={{ 
+                  transform: isDeptDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s ease',
+                  flexShrink: 0
+                }} 
+              />
+            </button>
+
+            {/* Custom Dropdown Menu (In-page Dropdown Box) */}
+            {isDeptDropdownOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'white',
+                  borderRadius: 'var(--rounded-md, 8px)',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16)',
+                  border: '1px solid var(--surface-border)',
+                  maxHeight: '220px',
+                  overflowY: 'auto',
+                  zIndex: 100,
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                <div
+                  onClick={() => {
+                    setDepartment('');
+                    setIsDeptDropdownOpen(false);
+                  }}
+                  style={{
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: !department ? 'var(--primary)' : 'var(--text-sub)',
+                    backgroundColor: !department ? 'var(--surface-container-low, #f0f4f9)' : 'transparent',
+                    borderBottom: '1px solid var(--surface-border)',
+                    fontWeight: !department ? 'bold' : 'normal'
+                  }}
+                >
+                  부서 선택
+                </div>
+                {departments?.map((d) => {
+                  const isSelected = department === d;
+                  return (
+                    <div
+                      key={d}
+                      onClick={() => {
+                        setDepartment(d);
+                        setIsDeptDropdownOpen(false);
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                        backgroundColor: isSelected ? 'var(--surface-container-low, #f0f4f9)' : 'transparent',
+                        fontWeight: isSelected ? 'bold' : 'normal',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        borderBottom: '1px solid var(--surface-border)'
+                      }}
+                    >
+                      <span>{d}</span>
+                      {isSelected && (
+                        <span style={{ color: 'var(--primary)', fontSize: '13px' }}>●</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
