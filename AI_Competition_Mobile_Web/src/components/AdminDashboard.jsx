@@ -25,6 +25,12 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   const [editDeptOld, setEditDeptOld] = useState('');
   const [editDeptNew, setEditDeptNew] = useState('');
 
+  const [selectedAuthMode, setSelectedAuthMode] = useState(authMode || 'LIST');
+
+  useEffect(() => {
+    if (authMode) setSelectedAuthMode(authMode);
+  }, [authMode]);
+
   useEffect(() => {
     if (!selectedDept && departments.length > 0) {
       setSelectedDept(departments[0]);
@@ -276,7 +282,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   };
 
   const handleSaveAndRedirectLogin = (targetMode) => {
-    const modeToSave = targetMode || authMode;
+    const modeToSave = targetMode || selectedAuthMode || authMode || 'LIST';
     
     // 1. Synchronously set localStorage and React state
     localStorage.setItem('authMode', modeToSave);
@@ -291,7 +297,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
     // 3. Instantly logout and redirect to main login page
     if (onLogout) onLogout();
-    navigate('/', { replace: true });
+    window.location.href = '/';
   };
 
   return (
@@ -305,11 +311,8 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
           <select 
             className="input-field" 
             style={{ padding: '4px 8px', fontSize: '12px', width: 'auto', border: 'none', backgroundColor: 'var(--surface-container-low)', fontWeight: 'bold' }}
-            value={authMode} 
-            onChange={(e) => {
-              const newMode = e.target.value;
-              handleSaveAndRedirectLogin(newMode);
-            }}
+            value={selectedAuthMode} 
+            onChange={(e) => setSelectedAuthMode(e.target.value)}
           >
             <option value="LIST">로그인 리스트 선택</option>
             <option value="ID_PW">로그인 ID/PW</option>
@@ -318,7 +321,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
           <button 
             className="btn btn-secondary" 
             style={{ padding: '4px 8px', fontSize: '12px', minHeight: '32px', height: 'auto', borderColor: 'var(--primary)', color: 'var(--primary)' }}
-            onClick={() => handleSaveAndRedirectLogin(authMode)}
+            onClick={() => handleSaveAndRedirectLogin(selectedAuthMode)}
           >
             저장
           </button>
