@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, CheckCircle, LogOut, ArrowRight, ChevronDown } from 'lucide-react';
+import { Save, CheckCircle, LogOut, ArrowRight, ChevronDown, FolderOpen, Trash2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../apiConfig';
 
@@ -9,6 +9,22 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const [department, setDepartment] = useState(() => departments?.[0] || '');
   const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(false);
   const deptDropdownRef = useRef(null);
+
+  // Temporary Drafts Management
+  const getTempStorageKey = () => `temp_evaluations_${user?.name || 'anonymous'}`;
+
+  const getSavedDrafts = () => {
+    try {
+      const data = localStorage.getItem(getTempStorageKey());
+      return data ? JSON.parse(data) : {};
+    } catch(e) {
+      console.error(e);
+      return {};
+    }
+  };
+
+  const [savedDrafts, setSavedDrafts] = useState(() => getSavedDrafts());
+  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -85,9 +101,75 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const handleSave = () => {
+    if (!department) {
+      alert('임시저장할 부서를 먼저 선택해주세요.');
+      return;
+    }
     if (!checkZeroScoresAndConfirm()) return;
+
+    const currentDrafts = getSavedDrafts();
+    const now = new Date();
+    const timeString = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const newDraft = {
+      department,
+      date: evaluationDate,
+      scores: { ...scores },
+      totalScore,
+      savedAt: timeString
+    };
+
+    currentDrafts[department] = newDraft;
+    localStorage.setItem(getTempStorageKey(), JSON.stringify(currentDrafts));
+    setSavedDrafts({ ...currentDrafts });
     setStatus('TEMP');
-    alert('임시 저장되었습니다. 최종 반영을 위해 반드시 [제출]을 클릭해주세요.');
+    alert(`[${department}] 평가 내용이 성공적으로 임시저장되었습니다.\n언제든 [불러오기] 메뉴에서 다시 불러올 수 있습니다.`);
+  };
+
+  const handleOpenLoadModal = () => {
+    const current = getSavedDrafts();
+    setSavedDrafts(current);
+    const keys = Object.keys(current);
+    if (keys.length === 0) {
+      alert('임시 저장된 평가 데이터가 없습니다.\n먼저 [임시저장]을 진행해주세요.');
+      return;
+    }
+    setIsLoadModalOpen(true);
+  };
+
+  const handleLoadDraft = (draft) => {
+    if (!draft) return;
+    
+    // Check if form currently has scores that differ
+    const hasCurrentScores = Object.values(scores).some(v => v !== '' && Number(v) > 0);
+    if (hasCurrentScores && (department !== draft.department || JSON.stringify(scores) !== JSON.stringify(draft.scores))) {
+      if (!confirm(`[${draft.department}]의 임시저장 데이터를 불러오시겠습니까?\n현재 입력창에 작성 중인 점수는 불러온 데이터로 대체됩니다.`)) {
+        return;
+      }
+    }
+
+    setDepartment(draft.department);
+    setEvaluationDate(draft.date);
+    setScores(draft.scores);
+    setStatus('TEMP');
+    setIsLoadModalOpen(false);
+    alert(`[${draft.department}]의 임시저장 데이터를 불러왔습니다.`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteDraft = (deptToDelete) => {
+    if (!confirm(`[${deptToDelete}]의 임시저장 데이터를 삭제하시겠습니까?`)) return;
+    const currentDrafts = getSavedDrafts();
+    delete currentDrafts[deptToDelete];
+    localStorage.setItem(getTempStorageKey(), JSON.stringify(currentDrafts));
+    setSavedDrafts({ ...currentDrafts });
+  };
+
+  const handleClearAllDrafts = () => {
+    if (!confirm('모든 임시저장 데이터를 삭제하시겠습니까?')) return;
+    localStorage.removeItem(getTempStorageKey());
+    setSavedDrafts({});
+    setIsLoadModalOpen(false);
   };
 
   const submitToAPI = async () => {
@@ -136,6 +218,14 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     
     await submitToAPI();
 
+    // Clean up temporary draft for this department upon final submit
+    const currentDrafts = getSavedDrafts();
+    if (currentDrafts[department]) {
+      delete currentDrafts[department];
+      localStorage.setItem(getTempStorageKey(), JSON.stringify(currentDrafts));
+      setSavedDrafts({ ...currentDrafts });
+    }
+
     const newCompleted = [{
       date: evaluationDate,
       department,
@@ -168,6 +258,14 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     }
     if (!checkZeroScoresAndConfirm()) return;
     await submitToAPI();
+
+    // Clean up temporary draft for this department upon final submit
+    const currentDrafts = getSavedDrafts();
+    if (currentDrafts[department]) {
+      delete currentDrafts[department];
+      localStorage.setItem(getTempStorageKey(), JSON.stringify(currentDrafts));
+      setSavedDrafts({ ...currentDrafts });
+    }
 
     const newCompleted = [{
       date: evaluationDate,
@@ -208,9 +306,34 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   return (
     <div style={{ paddingBottom: '60px' }}>
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--surface-header)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--surface-border)' }}>
+      <header style={{ backgroundColor: 'var(--surface-header)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--surface-border)', flexWrap: 'wrap', gap: '8px' }}>
         <h2 className="title-md">평가 입력</h2>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button 
+            type="button"
+            onClick={handleOpenLoadModal} 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px', 
+              backgroundColor: 'white', 
+              color: 'var(--primary)', 
+              border: '1px solid var(--primary)', 
+              padding: '6px 10px', 
+              borderRadius: '4px', 
+              cursor: 'pointer', 
+              fontSize: '12px', 
+              fontWeight: 'bold' 
+            }}
+          >
+            <FolderOpen size={14} />
+            불러오기
+            {Object.keys(savedDrafts).length > 0 && (
+              <span style={{ backgroundColor: 'var(--primary)', color: 'white', borderRadius: '10px', padding: '0 5px', fontSize: '10px', marginLeft: '2px' }}>
+                {Object.keys(savedDrafts).length}
+              </span>
+            )}
+          </button>
           {user.role === 'ADMIN' && (
             <button 
               onClick={() => navigate('/admin')} 
@@ -376,10 +499,10 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
             <span className="headline-md">총점</span>
             <span className="headline-lg" style={{ color: 'var(--primary)' }}>{totalScore} 점</span>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button 
               className="btn btn-secondary" 
-              style={{ flex: 1, padding: '12px 4px', fontSize: '13px' }} 
+              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
               onClick={handleSave}
             >
               <Save size={16} />
@@ -387,7 +510,15 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
             </button>
             <button 
               className="btn btn-secondary" 
-              style={{ flex: 1, padding: '12px 4px', fontSize: '13px' }} 
+              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold' }} 
+              onClick={handleOpenLoadModal}
+            >
+              <FolderOpen size={16} />
+              불러오기
+            </button>
+            <button 
+              className="btn btn-secondary" 
+              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
               onClick={handleSkipNext}
             >
               <ArrowRight size={16} />
@@ -395,7 +526,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
             </button>
             <button 
               className="btn btn-primary" 
-              style={{ flex: 1, padding: '12px 4px', fontSize: '13px' }} 
+              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
               onClick={handleNextDepartment}
             >
               <CheckCircle size={16} />
@@ -461,6 +592,155 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
         )}
 
       </div>
+
+      {/* Load Drafts Modal */}
+      {isLoadModalOpen && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+          onClick={() => setIsLoadModalOpen(false)}
+        >
+          <div 
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '20px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--surface-border)', paddingBottom: '12px' }}>
+              <h3 className="title-md" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--primary)' }}>
+                <FolderOpen size={20} /> 임시저장 목록
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setIsLoadModalOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} color="var(--text-sub)" />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px' }}>
+              {Object.keys(savedDrafts).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-sub)' }}>
+                  임시 저장된 평가 데이터가 없습니다.
+                </div>
+              ) : (
+                Object.values(savedDrafts).map((draft) => {
+                  const isCurrentDept = draft.department === department;
+                  return (
+                    <div 
+                      key={draft.department}
+                      style={{
+                        border: isCurrentDept ? '2px solid var(--primary)' : '1px solid var(--surface-border)',
+                        borderRadius: '8px',
+                        padding: '12px 14px',
+                        backgroundColor: isCurrentDept ? 'var(--surface-container-low, #f0f4f9)' : 'var(--surface-container-lowest)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ fontSize: '15px' }}>{draft.department}</strong>
+                          {isCurrentDept && (
+                            <span style={{ fontSize: '11px', backgroundColor: 'var(--primary)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>
+                              현재 부서
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--text-sub)' }}>
+                          {draft.savedAt}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                        <span style={{ color: 'var(--text-sub)' }}>평가일자: {draft.date}</span>
+                        <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '14px' }}>총점 {draft.totalScore}점</span>
+                      </div>
+
+                      {/* Scores preview */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                        {criteria?.map((c) => {
+                          const sc = draft.scores?.[c.id];
+                          return (
+                            <span key={c.id} style={{ fontSize: '11px', backgroundColor: 'var(--surface-container, #eef2f6)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-sub)' }}>
+                              {c.label}: <strong style={{ color: 'var(--text-main)' }}>{sc !== '' && sc !== undefined ? `${sc}점` : '0점'}</strong>
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      {/* Buttons */}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px', justifyContent: 'flex-end' }}>
+                        <button 
+                          type="button"
+                          className="btn btn-secondary" 
+                          style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--error)', borderColor: 'var(--error)' }}
+                          onClick={() => handleDeleteDraft(draft.department)}
+                        >
+                          <Trash2 size={14} />
+                          삭제
+                        </button>
+                        <button 
+                          type="button"
+                          className="btn btn-primary" 
+                          style={{ padding: '6px 14px', fontSize: '12px' }}
+                          onClick={() => handleLoadDraft(draft)}
+                        >
+                          <FolderOpen size={14} />
+                          불러오기
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--surface-border)' }}>
+              {Object.keys(savedDrafts).length > 0 ? (
+                <button 
+                  type="button"
+                  style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}
+                  onClick={handleClearAllDrafts}
+                >
+                  전체 삭제
+                </button>
+              ) : <div />}
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ padding: '8px 16px', fontSize: '13px' }}
+                onClick={() => setIsLoadModalOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
