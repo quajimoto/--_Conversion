@@ -107,7 +107,17 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     setScores(prev => ({ ...prev, [field]: numValue }));
   };
 
+  const isAllEvaluated = Boolean(
+    departments && 
+    departments.length > 0 && 
+    departments.every(d => completedEvaluations.some(e => e.department === d))
+  );
+
   const handleSave = () => {
+    if (isAllEvaluated) {
+      alert('모든 부서의 평가가 이미 최종 완료되었습니다.\n수정이 필요하신 경우 아래 [완료된 평가 내역]의 [점수 수정]을 이용해주세요.');
+      return;
+    }
     const targetDept = department || departments?.[0] || '';
     if (!targetDept) {
       alert('등록된 부서가 없습니다.');
@@ -216,6 +226,11 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const handleNextDepartment = async () => {
+    if (isAllEvaluated) {
+      alert('모든 부서의 평가가 이미 정상적으로 최종 저장 및 제출 완료되었습니다.\n점수 수정이 필요하신 경우 아래 [완료된 평가 내역]에서 바로 [점수 수정]을 이용해주세요.');
+      return;
+    }
+
     const targetDept = department || departments?.[0] || '';
     if (!targetDept) {
       alert('등록된 부서가 없습니다. 관리자 메뉴에서 부서를 먼저 등록해주세요.');
@@ -269,11 +284,15 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       setDepartment(nextDept);
     } else {
       setDepartment('');
-      alert('더 이상 평가할 부서가 없습니다. 모든 평가가 완료되었습니다.');
+      alert('🎉 모든 부서의 평가가 성공적으로 최종 저장 및 완료되었습니다!\n수고하셨습니다.');
     }
   };
 
   const handleSkipNext = async () => {
+    if (isAllEvaluated) {
+      alert('모든 부서의 평가가 이미 완료되었습니다.');
+      return;
+    }
     const targetDept = department || departments?.[0] || '';
     if (!targetDept) {
       alert('등록된 부서가 없습니다.');
@@ -449,192 +468,209 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       </header>
 
       <div className="container">
-        {/* Date and Department Select */}
-        <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', position: 'relative', zIndex: isDeptDropdownOpen ? 50 : 1 }}>
-          <div style={{ flex: '1 1 140px' }}>
-            <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 일자</label>
-            <input 
-              type="date" 
-              className="input-field" 
-              value={evaluationDate}
-              onChange={(e) => setEvaluationDate(e.target.value)}
-              disabled={status === 'SUBMITTED'}
-            />
+        {isAllEvaluated ? (
+          <div className="card" style={{ textAlign: 'center', padding: '36px 20px', backgroundColor: 'var(--surface-container-lowest)', border: '2px solid var(--primary)', marginBottom: '24px' }}>
+            <div style={{ display: 'inline-flex', padding: '16px', borderRadius: '50%', backgroundColor: 'var(--primary-container, #e3f2fd)', color: 'var(--primary)', marginBottom: '16px' }}>
+              <CheckCircle size={44} color="var(--primary)" />
+            </div>
+            <h2 className="headline-md" style={{ color: 'var(--primary)', marginBottom: '8px' }}>
+              모든 부서 평가가 완료되었습니다!
+            </h2>
+            <p className="body-md" style={{ color: 'var(--text-sub)', lineHeight: '1.6', margin: '0 auto 16px', maxWidth: '440px' }}>
+              전 부서({departments.length}개 부서)의 평가 점수가 서버에 안전하게 최종 저장되었습니다.<br />
+              점수를 다시 검토하거나 수정하시려면 아래 <strong>[완료된 평가 내역]</strong>에서 <strong>[점수 수정]</strong>을 이용해 주세요.
+            </p>
           </div>
-          <div style={{ flex: '1 1 140px', position: 'relative' }} ref={deptDropdownRef}>
-            <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 부서</label>
-            
-            {/* Custom Dropdown Trigger */}
-            <button 
-              type="button"
-              className="input-field" 
-              disabled={status === 'SUBMITTED'}
-              onClick={() => {
-                if (status !== 'SUBMITTED') {
-                  setIsDeptDropdownOpen(prev => !prev);
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                cursor: status === 'SUBMITTED' ? 'not-allowed' : 'pointer',
-                backgroundColor: status === 'SUBMITTED' ? '#e9ecef' : 'white',
-                textAlign: 'left',
-                padding: '10px 14px',
-                userSelect: 'none',
-                WebkitTapHighlightColor: 'transparent'
-              }}
-            >
-              <span style={{ color: department ? 'var(--text-main)' : 'var(--text-sub)' }}>
-                {department || '부서 선택'}
-              </span>
-              <ChevronDown 
-                size={18} 
-                color="var(--text-sub)" 
-                style={{ 
-                  transform: isDeptDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                  flexShrink: 0
-                }} 
-              />
-            </button>
-
-            {/* Custom Dropdown Menu (In-page Dropdown Box) */}
-            {isDeptDropdownOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 4px)',
-                  left: 0,
-                  right: 0,
-                  backgroundColor: 'white',
-                  borderRadius: 'var(--rounded-md, 8px)',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16)',
-                  border: '1px solid var(--surface-border)',
-                  maxHeight: '220px',
-                  overflowY: 'auto',
-                  zIndex: 100,
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
-              >
-                <div
+        ) : (
+          <>
+            {/* Date and Department Select */}
+            <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', position: 'relative', zIndex: isDeptDropdownOpen ? 50 : 1 }}>
+              <div style={{ flex: '1 1 140px' }}>
+                <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 일자</label>
+                <input 
+                  type="date" 
+                  className="input-field" 
+                  value={evaluationDate}
+                  onChange={(e) => setEvaluationDate(e.target.value)}
+                  disabled={status === 'SUBMITTED'}
+                />
+              </div>
+              <div style={{ flex: '1 1 140px', position: 'relative' }} ref={deptDropdownRef}>
+                <label className="label-md" style={{ display: 'block', marginBottom: '8px' }}>평가 부서</label>
+                
+                {/* Custom Dropdown Trigger */}
+                <button 
+                  type="button"
+                  className="input-field" 
+                  disabled={status === 'SUBMITTED'}
                   onClick={() => {
-                    setDepartment('');
-                    setIsDeptDropdownOpen(false);
+                    if (status !== 'SUBMITTED') {
+                      setIsDeptDropdownOpen(prev => !prev);
+                    }
                   }}
                   style={{
-                    padding: '12px 14px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    color: !department ? 'var(--primary)' : 'var(--text-sub)',
-                    backgroundColor: !department ? 'var(--surface-container-low, #f0f4f9)' : 'transparent',
-                    borderBottom: '1px solid var(--surface-border)',
-                    fontWeight: !department ? 'bold' : 'normal'
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    cursor: status === 'SUBMITTED' ? 'not-allowed' : 'pointer',
+                    backgroundColor: status === 'SUBMITTED' ? '#e9ecef' : 'white',
+                    textAlign: 'left',
+                    padding: '10px 14px',
+                    userSelect: 'none',
+                    WebkitTapHighlightColor: 'transparent'
                   }}
                 >
-                  부서 선택
-                </div>
-                {departments?.map((d) => {
-                  const isSelected = department === d;
-                  return (
+                  <span style={{ color: department ? 'var(--text-main)' : 'var(--text-sub)' }}>
+                    {department || '부서 선택'}
+                  </span>
+                  <ChevronDown 
+                    size={18} 
+                    color="var(--text-sub)" 
+                    style={{ 
+                      transform: isDeptDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease',
+                      flexShrink: 0
+                    }} 
+                  />
+                </button>
+
+                {/* Custom Dropdown Menu (In-page Dropdown Box) */}
+                {isDeptDropdownOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      borderRadius: 'var(--rounded-md, 8px)',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16)',
+                      border: '1px solid var(--surface-border)',
+                      maxHeight: '220px',
+                      overflowY: 'auto',
+                      zIndex: 100,
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}
+                  >
                     <div
-                      key={d}
                       onClick={() => {
-                        setDepartment(d);
+                        setDepartment('');
                         setIsDeptDropdownOpen(false);
                       }}
                       style={{
                         padding: '12px 14px',
                         cursor: 'pointer',
                         fontSize: '14px',
-                        color: isSelected ? 'var(--primary)' : 'var(--text-main)',
-                        backgroundColor: isSelected ? 'var(--surface-container-low, #f0f4f9)' : 'transparent',
-                        fontWeight: isSelected ? 'bold' : 'normal',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        borderBottom: '1px solid var(--surface-border)'
+                        color: !department ? 'var(--primary)' : 'var(--text-sub)',
+                        backgroundColor: !department ? 'var(--surface-container-low, #f0f4f9)' : 'transparent',
+                        borderBottom: '1px solid var(--surface-border)',
+                        fontWeight: !department ? 'bold' : 'normal'
                       }}
                     >
-                      <span>{d}</span>
-                      {isSelected && (
-                        <span style={{ color: 'var(--primary)', fontSize: '13px' }}>●</span>
-                      )}
+                      부서 선택
                     </div>
-                  );
-                })}
+                    {departments?.map((d) => {
+                      const isSelected = department === d;
+                      return (
+                        <div
+                          key={d}
+                          onClick={() => {
+                            setDepartment(d);
+                            setIsDeptDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: '12px 14px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                            backgroundColor: isSelected ? 'var(--surface-container-low, #f0f4f9)' : 'transparent',
+                            fontWeight: isSelected ? 'bold' : 'normal',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid var(--surface-border)'
+                          }}
+                        >
+                          <span>{d}</span>
+                          {isSelected && (
+                            <span style={{ color: 'var(--primary)', fontSize: '13px' }}>●</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Score Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '24px' }}>
-          {criteria?.map((c) => (
-            <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: status === 'SUBMITTED' ? 'var(--status-locked)' : 'var(--surface-container-lowest)' }}>
-              <div>
-                <div className="title-md" style={{ whiteSpace: 'pre-wrap' }}>{c.label}</div>
-                <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description}</div>
-              </div>
-              <input 
-                ref={(el) => inputRefs.current[c.id] = el}
-                id={`score-input-${c.id}`}
-                type="number" 
-                className="input-field" 
-                style={{ width: '100%', backgroundColor: status === 'SUBMITTED' ? '#e9ecef' : 'white' }}
-                value={scores[c.id]} 
-                onChange={(e) => handleScoreChange(c.id, e.target.value)}
-                disabled={status === 'SUBMITTED'}
-                placeholder="0"
-              />
             </div>
-          ))}
-        </div>
 
-        {/* Total & Actions */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', bottom: '16px', boxShadow: '0 -4px 12px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="headline-md">총점</span>
-            <span className="headline-lg" style={{ color: 'var(--primary)' }}>{totalScore} 점</span>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button 
-              className="btn btn-secondary" 
-              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
-              onClick={handleSave}
-            >
-              <Save size={16} />
-              임시저장
-            </button>
-            <button 
-              className="btn btn-secondary" 
-              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold' }} 
-              onClick={handleOpenLoadModal}
-            >
-              <FolderOpen size={16} />
-              불러오기
-            </button>
-            <button 
-              className="btn btn-secondary" 
-              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
-              onClick={handleSkipNext}
-            >
-              <ArrowRight size={16} />
-              다음부서
-            </button>
-            <button 
-              className="btn btn-primary" 
-              style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
-              onClick={handleNextDepartment}
-            >
-              <CheckCircle size={16} />
-              최종 제출
-            </button>
-          </div>
-        </div>
+            {/* Score Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '24px' }}>
+              {criteria?.map((c) => (
+                <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: status === 'SUBMITTED' ? 'var(--status-locked)' : 'var(--surface-container-lowest)' }}>
+                  <div>
+                    <div className="title-md" style={{ whiteSpace: 'pre-wrap' }}>{c.label}</div>
+                    <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description}</div>
+                  </div>
+                  <input 
+                    ref={(el) => inputRefs.current[c.id] = el}
+                    id={`score-input-${c.id}`}
+                    type="number" 
+                    className="input-field" 
+                    style={{ width: '100%', backgroundColor: status === 'SUBMITTED' ? '#e9ecef' : 'white' }}
+                    value={scores[c.id]} 
+                    onChange={(e) => handleScoreChange(c.id, e.target.value)}
+                    disabled={status === 'SUBMITTED'}
+                    placeholder="0"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Total & Actions */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', bottom: '16px', boxShadow: '0 -4px 12px rgba(0,0,0,0.05)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="headline-md">총점</span>
+                <span className="headline-lg" style={{ color: 'var(--primary)' }}>{totalScore} 점</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
+                  onClick={handleSave}
+                >
+                  <Save size={16} />
+                  임시저장
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold' }} 
+                  onClick={handleOpenLoadModal}
+                >
+                  <FolderOpen size={16} />
+                  불러오기
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
+                  onClick={handleSkipNext}
+                >
+                  <ArrowRight size={16} />
+                  다음부서
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ flex: '1 1 70px', padding: '12px 4px', fontSize: '13px' }} 
+                  onClick={handleNextDepartment}
+                >
+                  <CheckCircle size={16} />
+                  최종 제출
+                </button>
+              </div>
+            </div>
+          </>
+        )}
         
         {/* Completed Evaluations */}
         {completedEvaluations.length > 0 && (
