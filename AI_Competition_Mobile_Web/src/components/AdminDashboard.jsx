@@ -12,7 +12,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     const tzOffset = new Date().getTimezoneOffset() * 60000;
     return new Date(Date.now() - tzOffset).toISOString().split('T')[0];
   });
-  const [selectedDept, setSelectedDept] = useState(departments[0] || '');
+  const [selectedDept, setSelectedDept] = useState('전체');
   
   const [draggedItemIndex, setDraggedItemIndex] = useState(null);
   const [dragOverItemIndex, setDragOverItemIndex] = useState(null);
@@ -31,15 +31,10 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     if (authMode) setSelectedAuthMode(authMode);
   }, [authMode]);
 
-  useEffect(() => {
-    if (!selectedDept && departments.length > 0) {
-      setSelectedDept(departments[0]);
-    }
-  }, [departments]);
-
-  const handleFetchResults = async () => {
+  const handleFetchResults = async (deptToFetch = selectedDept) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/results?department=${encodeURIComponent(selectedDept)}&date=${date}`);
+      const target = deptToFetch || '전체';
+      const res = await fetch(`${API_BASE_URL}/api/admin/results?department=${encodeURIComponent(target)}&date=${date}`);
       const data = await res.json();
       if (data.results) {
         setResults(data.results);
@@ -51,6 +46,10 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
       alert('데이터를 가져오는데 실패했습니다.');
     }
   };
+
+  useEffect(() => {
+    handleFetchResults(selectedDept);
+  }, [selectedDept, date]);
 
   const handleAddDepartment = () => {
     if (!newDept) return;
@@ -375,6 +374,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                       setCheckedResults([]);
                     }}
                   >
+                    <option value="전체">전체 부서</option>
                     {departments.map(d => (
                       <option key={d} value={d}>{d}</option>
                     ))}
@@ -382,7 +382,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button className="btn btn-primary" style={{ flex: '1 1 100px' }} onClick={handleFetchResults}>
+                <button className="btn btn-primary" style={{ flex: '1 1 100px' }} onClick={() => handleFetchResults(selectedDept)}>
                   <BarChart3 size={18} />
                   조회
                 </button>
@@ -398,7 +398,9 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
             </div>
 
             <div className="card" style={{ marginBottom: '16px', backgroundColor: 'var(--surface-header)', borderColor: 'var(--primary)' }}>
-              <h3 className="title-md" style={{ marginBottom: '12px', color: 'var(--primary)' }}>{selectedDept || '부서'} 총점 평균</h3>
+              <h3 className="title-md" style={{ marginBottom: '12px', color: 'var(--primary)' }}>
+                {selectedDept === '전체' ? '전체 부서' : (selectedDept || '부서')} 총점 평균
+              </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                 {criteria?.map(c => (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between' }}>

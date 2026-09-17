@@ -193,7 +193,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
 
   const submitToAPI = async (targetDept) => {
     try {
-      await fetch(`${API_BASE_URL}/api/evaluation/submit`, {
+      const res = await fetch(`${API_BASE_URL}/api/evaluation/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -204,9 +204,16 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
           scores: scores
         })
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+      return true;
     } catch(e) {
       console.error(e);
-      alert('서버 저장 실패');
+      alert(`[${targetDept || department}] 평가 서버 저장에 실패했습니다:\n` + e.message);
+      return false;
     }
   };
 
@@ -253,7 +260,8 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       return; // 취소 클릭 시 아무것도 변경하지 않고 현재 화면 유지
     }
     
-    await submitToAPI(targetDept);
+    const saved = await submitToAPI(targetDept);
+    if (!saved) return; // 저장 실패 시 다음 부서로 이동하지 않고 유지
 
     // Clean up temporary draft for this department upon final submit
     const currentDrafts = getSavedDrafts();
@@ -266,7 +274,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     const newCompleted = [{
       date: evaluationDate,
       department: targetDept,
-      scores,
+      scores: { ...scores },
       totalScore
     }, ...completedEvaluations];
     
@@ -301,7 +309,8 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     if (!department) setDepartment(targetDept);
 
     if (!checkZeroScoresAndConfirm()) return;
-    await submitToAPI(targetDept);
+    const saved = await submitToAPI(targetDept);
+    if (!saved) return;
 
     // Clean up temporary draft for this department upon final submit
     const currentDrafts = getSavedDrafts();
@@ -390,7 +399,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     const newTotal = Object.values(editingScores).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
 
     try {
-      await fetch(`${API_BASE_URL}/api/evaluation/submit`, {
+      const res = await fetch(`${API_BASE_URL}/api/evaluation/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -401,6 +410,11 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
           scores: editingScores
         })
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
 
       setCompletedEvaluations(prev => {
         const updated = [...prev];
@@ -417,7 +431,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       alert(`[${evalData.department}] 평가 점수가 성공적으로 수정되었습니다.`);
     } catch(e) {
       console.error(e);
-      alert('서버 저장에 실패했습니다.');
+      alert('서버 저장에 실패했습니다:\n' + e.message);
     }
   };
 

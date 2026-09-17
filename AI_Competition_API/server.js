@@ -142,32 +142,43 @@ app.post('/api/criteria/sync', async (req, res) => {
 app.post('/api/evaluation/submit', async (req, res) => {
   const { evaluator_name, department_name, eval_date, total_score, scores } = req.body;
   
+  // Calculate total score on server side as well to guarantee accuracy
+  let computedTotal = 0;
+  if (scores && typeof scores === 'object') {
+    for (const val of Object.values(scores)) {
+      computedTotal += (Number(val) || 0);
+    }
+  }
+  const finalTotalScore = (total_score !== undefined && total_score !== null && !isNaN(total_score) && Number(total_score) > 0)
+    ? Number(total_score)
+    : computedTotal;
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     
-    // Delete existing evaluation for this user, dept, and date (for modify feature)
+    // Delete existing evaluation for this user and dept (for replace/modify feature)
     await connection.query(`
       DELETE FROM evaluations
-      WHERE evaluator_name = ? AND department_name = ? AND eval_date = ?
-    `, [evaluator_name || '익명', department_name, eval_date]);
+      WHERE evaluator_name = ? AND department_name = ?
+    `, [evaluator_name || '익명', department_name]);
 
     // Insert into evaluations master
     const [evalResult] = await connection.query(`
       INSERT INTO evaluations (evaluator_name, department_name, eval_date, total_score)
       VALUES (?, ?, ?, ?) RETURNING id
-    `, [evaluator_name || '익명', department_name, eval_date, total_score || 0]);
+    `, [evaluator_name || '익명', department_name, eval_date || new Date().toISOString().split('T')[0], finalTotalScore]);
 
     const evalId = evalResult[0]?.id || evalResult.insertId;
 
     // Insert detailed scores
-    if (scores) {
+    if (scores && typeof scores === 'object') {
       for (const [criterion_id, score] of Object.entries(scores)) {
-        if (score !== '') {
+        if (score !== '' && score !== null && score !== undefined) {
           await connection.query(`
             INSERT INTO evaluation_scores (evaluation_id, criterion_id, score)
             VALUES (?, ?, ?)
-          `, [evalId, criterion_id, Number(score)]);
+          `, [evalId, criterion_id, Number(score) || 0]);
         }
       }
     }
@@ -176,8 +187,8 @@ app.post('/api/evaluation/submit', async (req, res) => {
     res.json({ success: true, evalId });
   } catch (error) {
     await connection.rollback();
-    console.error(error);
-    res.status(500).json({ error: 'DB Error' });
+    console.error('Error submitting evaluation:', error);
+    res.status(500).json({ error: error.message || 'DB Error' });
   } finally {
     connection.release();
   }
@@ -189,7 +200,7 @@ app.get('/api/admin/results', async (req, res) => {
   const date = req.query.date; // optional
   
   try {
-    let query = 'SELECT * FROM evaluations WHERE is_deleted = FALSE';
+    let query = "SELECT id, evaluator_name, department_name, to_char(eval_date, 'YYYY-MM-DD') as eval_date, total_score, is_deleted, created_at FROM evaluations WHERE is_deleted = FALSE";
     let params = [];
 
     if (dept && dept !== '전체') {
@@ -209,21 +220,23 @@ app.get('/api/admin/results', async (req, res) => {
     let sumTotal = 0;
     
     for (const e of evals) {
-      sumTotal += e.total_score;
+      const rowTotal = Number(e.total_score) || 0;
+      sumTotal += rowTotal;
       
-      const [scoresRows] = await pool.query('SELECT * FROM evaluation_scores WHERE evaluation_id = ?', [e.id]);
+      const [scoresRows] = await pool.query('SELECT criterion_id, score FROM evaluation_scores WHERE evaluation_id = ?', [e.id]);
       
       const scoreMap = {};
       for (const sr of scoresRows) {
-        scoreMap[sr.criterion_id] = sr.score;
-        averages[sr.criterion_id] = (averages[sr.criterion_id] || 0) + sr.score;
+        const sc = Number(sr.score) || 0;
+        scoreMap[sr.criterion_id] = sc;
+        averages[sr.criterion_id] = (averages[sr.criterion_id] || 0) + sc;
       }
       
       results.push({
         id: e.id,
         name: e.evaluator_name,
         date: e.eval_date,
-        total: e.total_score,
+        total: rowTotal,
         isDeleted: !!e.is_deleted,
         department_name: e.department_name,
         ...scoreMap
@@ -245,7 +258,7 @@ app.get('/api/admin/results', async (req, res) => {
       averages
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching admin results:', error);
     res.status(500).json({ error: 'DB Error' });
   }
 });

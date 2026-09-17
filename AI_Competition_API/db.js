@@ -85,9 +85,14 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS evaluation_scores (
         id SERIAL PRIMARY KEY,
         evaluation_id INT NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
-        criterion_id VARCHAR(50) NOT NULL REFERENCES criteria(id) ON DELETE CASCADE,
+        criterion_id VARCHAR(50) NOT NULL,
         score INT NOT NULL
       );
+    `);
+
+    // Drop FK constraint if it exists from previous schema
+    await client.query(`
+      ALTER TABLE evaluation_scores DROP CONSTRAINT IF EXISTS evaluation_scores_criterion_id_fkey;
     `);
 
     await client.query(`
@@ -119,7 +124,28 @@ async function initDB() {
       ON CONFLICT (emp_id) DO NOTHING;
     `);
 
-    console.log('PostgreSQL tables checked/created.');
+    // Seed default criteria if empty
+    await client.query(`
+      INSERT INTO criteria (id, label, description, max_score, order_index)
+      VALUES 
+        ('c1', '실무적용', '최대 10점', 10, 0),
+        ('c2', '업무효율', '최대 10점', 10, 1),
+        ('c3', '창의/혁신성', '최대 10점', 10, 2),
+        ('c4', '확산 가능성', '최대 10점', 10, 3)
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    // Seed default departments if empty
+    await client.query(`
+      INSERT INTO departments (name, order_index)
+      VALUES 
+        ('인사지원팀', 0),
+        ('플레이스테이션팀', 1),
+        ('IT기획팀', 2)
+      ON CONFLICT (name) DO NOTHING;
+    `);
+
+    console.log('PostgreSQL tables checked/created and seeded.');
     client.release();
   } catch (error) {
     console.error('PostgreSQL Initialization failed:', error);
