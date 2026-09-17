@@ -20,6 +20,34 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const [status, setStatus] = useState('DRAFT'); // DRAFT, TEMP, SUBMITTED
   const [completedEvaluations, setCompletedEvaluations] = useState([]);
 
+  const inputRefs = React.useRef({});
+
+  const checkZeroScoresAndConfirm = () => {
+    // Find criteria with 0 points (0, '0', '', or Number 0)
+    const zeroCriteria = criteria?.filter(c => {
+      const val = scores[c.id];
+      return val === 0 || val === '0' || val === '' || Number(val || 0) === 0;
+    }) || [];
+
+    if (zeroCriteria.length > 0) {
+      const zeroLabels = zeroCriteria.map(c => c.label).join(', ');
+      const isConfirmed = window.confirm(
+        `평가 항목 중 0점인 항목이 있습니다.\n(${zeroLabels})\n\n0점이 맞습니까?`
+      );
+      
+      if (!isConfirmed) {
+        // Focus cursor to the first 0-point item when user clicks Cancel
+        const firstZero = zeroCriteria[0];
+        if (firstZero && inputRefs.current[firstZero.id]) {
+          inputRefs.current[firstZero.id].focus();
+          inputRefs.current[firstZero.id].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleScoreChange = (field, value) => {
     if (status === 'SUBMITTED') return;
     
@@ -40,6 +68,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const handleSave = () => {
+    if (!checkZeroScoresAndConfirm()) return;
     setStatus('TEMP');
     alert('임시 저장되었습니다. 최종 반영을 위해 반드시 [제출]을 클릭해주세요.');
   };
@@ -83,6 +112,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       alert('부서를 선택해주세요.');
       return;
     }
+    if (!checkZeroScoresAndConfirm()) return;
     if (!confirm('평가를 최종 제출하시겠습니까? 제출 후에는 수정이 불가합니다.')) {
       return;
     }
@@ -115,6 +145,11 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const handleSkipNext = async () => {
+    if (!department) {
+      alert('부서를 선택해주세요.');
+      return;
+    }
+    if (!checkZeroScoresAndConfirm()) return;
     await submitToAPI();
 
     const newCompleted = [{
@@ -210,6 +245,8 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                 <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description}</div>
               </div>
               <input 
+                ref={(el) => inputRefs.current[c.id] = el}
+                id={`score-input-${c.id}`}
                 type="number" 
                 className="input-field" 
                 style={{ width: '100%', backgroundColor: status === 'SUBMITTED' ? '#e9ecef' : 'white' }}
