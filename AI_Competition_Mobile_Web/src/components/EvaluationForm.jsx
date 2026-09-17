@@ -23,20 +23,20 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const inputRefs = React.useRef({});
 
   const checkZeroScoresAndConfirm = () => {
-    // Find criteria with 0 points (0, '0', '', or Number 0)
+    // Find criteria with 0 points or empty values (undefined, null, '', 0, '0')
     const zeroCriteria = criteria?.filter(c => {
       const val = scores[c.id];
-      return val === 0 || val === '0' || val === '' || Number(val || 0) === 0;
+      return val === undefined || val === null || val === '' || val === 0 || val === '0' || Number(val || 0) === 0;
     }) || [];
 
     if (zeroCriteria.length > 0) {
       const zeroLabels = zeroCriteria.map(c => c.label).join(', ');
       const isConfirmed = window.confirm(
-        `평가 항목 중 0점인 항목이 있습니다.\n(${zeroLabels})\n\n0점이 맞습니까?`
+        `평가 항목 중 0점이거나 값이 입력되지 않은 항목이 있습니다.\n[${zeroLabels}]\n\n0점이 맞습니까?`
       );
       
       if (!isConfirmed) {
-        // Focus cursor to the first 0-point item when user clicks Cancel
+        // Focus cursor to the first 0-point or empty item when user clicks Cancel
         const firstZero = zeroCriteria[0];
         if (firstZero && inputRefs.current[firstZero.id]) {
           inputRefs.current[firstZero.id].focus();
