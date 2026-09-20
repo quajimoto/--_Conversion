@@ -7,7 +7,29 @@ import { API_BASE_URL } from './apiConfig';
 import './App.css';
 
 function App() {
-  const [user, setUser] = useState(null); // null, { name, role: 'USER' | 'ADMIN' }
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('eval_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+    if (userData) {
+      localStorage.setItem('eval_user', JSON.stringify(userData));
+    } else {
+      localStorage.removeItem('eval_user');
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('eval_user');
+  };
+
   const [authMode, setAuthModeState] = useState(() => localStorage.getItem('authMode') || 'LIST');
 
   const setAuthMode = (mode) => {
@@ -70,19 +92,19 @@ function App() {
           user ? (
             <Navigate to="/evaluation" replace />
           ) : (
-            <Login onLogin={setUser} authMode={authMode} />
+            <Login onLogin={handleLogin} authMode={authMode} />
           )
         } />
         <Route path="/evaluation" element={
           user ? (
-            <EvaluationForm user={user} onLogout={() => setUser(null)} departments={departments} criteria={criteria} />
+            <EvaluationForm user={user} onLogout={handleLogout} departments={departments} criteria={criteria} />
           ) : (
             <Navigate to="/" replace />
           )
         } />
         <Route path="/admin" element={
           user?.role === 'ADMIN' ? (
-            <AdminDashboard user={user} onLogout={() => setUser(null)} departments={departments} setDepartments={setDepartments} criteria={criteria} setCriteria={setCriteria} authMode={authMode} setAuthMode={setAuthMode} />
+            <AdminDashboard user={user} onLogout={handleLogout} departments={departments} setDepartments={setDepartments} criteria={criteria} setCriteria={setCriteria} authMode={authMode} setAuthMode={setAuthMode} />
           ) : (
             <Navigate to="/" replace />
           )
