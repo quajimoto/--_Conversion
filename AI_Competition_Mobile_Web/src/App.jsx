@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Login from './components/Login';
 import EvaluationForm from './components/EvaluationForm';
@@ -86,7 +86,7 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={
           user ? (
@@ -110,7 +110,7 @@ function App() {
           )
         } />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

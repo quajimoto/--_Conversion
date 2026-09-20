@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>사내 경진대회 평가 시스템</title>
+    <script>
+      // Single Page Application Fallback for Static Hosting (Render, GitHub Pages, etc.)
+      var pathname = window.location.pathname.replace(/^\//, '');
+      var search = window.location.search || '';
+      var hash = window.location.hash || '';
+      if (pathname && pathname !== 'index.html' && pathname !== '404.html') {
+        window.location.replace('/#/' + pathname + search + hash);
+      } else {
+        window.location.replace('/' + search + hash);
+      }
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

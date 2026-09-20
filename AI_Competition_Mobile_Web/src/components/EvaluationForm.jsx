@@ -6,12 +6,24 @@ import { API_BASE_URL } from '../apiConfig';
 const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const navigate = useNavigate();
   
-  const [department, setDepartment] = useState(() => departments?.[0] || '');
-  const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(false);
-  const deptDropdownRef = useRef(null);
-
   // Temporary Drafts Management
   const getTempStorageKey = () => `temp_evaluations_${user?.name || 'anonymous'}`;
+  const getActiveFormStorageKey = () => `active_eval_form_${user?.name || 'anonymous'}`;
+  const getCompletedStorageKey = () => `completed_evaluations_${user?.name || 'anonymous'}`;
+
+  const getSavedActiveState = () => {
+    try {
+      const data = localStorage.getItem(getActiveFormStorageKey());
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  };
+  const savedActive = getSavedActiveState();
+
+  const [department, setDepartment] = useState(() => savedActive?.department || departments?.[0] || '');
+  const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(false);
+  const deptDropdownRef = useRef(null);
 
   const getSavedDrafts = () => {
     try {
@@ -40,7 +52,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     };
   }, []);
 
-  // Ensure department is automatically defaulted to first department when loaded
+  // Ensure department is automatically defaulted to first department when loaded if empty
   useEffect(() => {
     if (!department && departments && departments.length > 0) {
       setDepartment(departments[0]);
@@ -48,17 +60,86 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   }, [departments, department]);
 
   const [evaluationDate, setEvaluationDate] = useState(() => {
+    if (savedActive?.date) return savedActive.date;
     const tzOffset = new Date().getTimezoneOffset() * 60000;
     return new Date(Date.now() - tzOffset).toISOString().split('T')[0];
   });
+
   const [scores, setScores] = useState(() => {
+    if (savedActive?.scores && Object.keys(savedActive.scores).length > 0) {
+      return savedActive.scores;
+    }
     const init = {};
     criteria?.forEach(c => init[c.id] = '');
     return init;
   });
   
-  const [status, setStatus] = useState('DRAFT'); // DRAFT, TEMP, SUBMITTED
-  const [completedEvaluations, setCompletedEvaluations] = useState([]);
+  const [status, setStatus] = useState(() => savedActive?.status || 'DRAFT'); // DRAFT, TEMP, SUBMITTED
+  const [completedEvaluations, setCompletedEvaluations] = useState(() => {
+    try {
+      const data = localStorage.getItem(getCompletedStorageKey());
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Auto-persist active form changes to localStorage
+  useEffect(() => {
+    if (!user?.name) return;
+    const activeData = {
+      department,
+      date: evaluationDate,
+      scores,
+      status
+    };
+    localStorage.setItem(getActiveFormStorageKey(), JSON.stringify(activeData));
+  }, [department, evaluationDate, scores, status, user?.name]);
+
+  // Auto-persist completedEvaluations to localStorage
+  useEffect(() => {
+    if (!user?.name) return;
+    localStorage.setItem(getCompletedStorageKey(), JSON.stringify(completedEvaluations));
+  }, [completedEvaluations, user?.name]);
+
+  // Sync completed evaluations from backend on mount
+  useEffect(() => {
+    if (!user?.name) return;
+    fetch(`${API_BASE_URL}/api/admin/results`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.results) {
+          const myEvals = data.results.filter(r => r.name === user.name && !r.isDeleted);
+          if (myEvals.length > 0) {
+            const formatted = myEvals.map(ev => {
+              const sc = {};
+              criteria?.forEach(c => {
+                if (ev[c.id] !== undefined) sc[c.id] = ev[c.id];
+              });
+              return {
+                date: ev.date,
+                department: ev.department_name,
+                scores: sc,
+                totalScore: ev.total
+              };
+            });
+            setCompletedEvaluations(prev => {
+              const merged = [...prev];
+              formatted.forEach(f => {
+                const idx = merged.findIndex(m => m.department === f.department);
+                if (idx >= 0) {
+                  merged[idx] = f;
+                } else {
+                  merged.push(f);
+                }
+              });
+              return merged;
+            });
+          }
+        }
+      })
+      .catch(err => console.error('Failed to sync completed evaluations:', err));
+  }, [user?.name, criteria]);
 
   const inputRefs = useRef({});
 
