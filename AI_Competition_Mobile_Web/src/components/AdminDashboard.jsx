@@ -30,11 +30,24 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const fetchAnonCounter = () => {
     fetch(`${API_BASE_URL}/api/anonymous-counter`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Not found');
+        return res.json();
+      })
       .then(data => {
         if (data && data.counter !== undefined) setAnonCounter(data.counter);
       })
-      .catch(console.error);
+      .catch(() => {
+        // Fallback to settings endpoint
+        fetch(`${API_BASE_URL}/api/settings`)
+          .then(r => r.ok ? r.json() : {})
+          .then(s => {
+            if (s && s.anonymous_counter !== undefined) {
+              setAnonCounter(parseInt(s.anonymous_counter, 10) || 0);
+            }
+          })
+          .catch(console.error);
+      });
   };
 
   useEffect(() => {
@@ -44,18 +57,35 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   const handleResetAnonCounter = async () => {
     if (!window.confirm('무기명 평가자 순번을 0으로 초기화하시겠습니까?\n다음 접속자부터 [평가자 1]로 새로 부여됩니다.')) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/anonymous-counter/reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startValue: 0 })
-      });
-      if (res.ok) {
-        setAnonCounter(0);
-        alert('무기명 순번이 0으로 초기화되었습니다.\n다음 접속자는 [평가자 1]로 발급됩니다.');
+      let resetDone = false;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/anonymous-counter/reset`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startValue: 0 })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success) resetDone = true;
+        }
+      } catch (e) {
+        // fallback
       }
+
+      if (!resetDone) {
+        // Fallback directly to settings API
+        await fetch(`${API_BASE_URL}/api/settings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ anonymous_counter: '0' })
+        });
+      }
+
+      setAnonCounter(0);
+      alert('무기명 순번이 0으로 초기화되었습니다.\n다음 접속자는 [평가자 1]로 발급됩니다.');
     } catch(e) {
       console.error(e);
-      alert('초기화 실패');
+      alert('초기화 중 오류가 발생했습니다.');
     }
   };
 

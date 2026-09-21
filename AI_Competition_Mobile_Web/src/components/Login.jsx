@@ -17,19 +17,60 @@ const Login = ({ onLogin, authMode }) => {
   const handleAnonymousLogin = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/anonymous-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        onLogin({ name: data.user.name, role: data.user.role });
-      } else {
-        alert('무기명 접속에 실패했습니다: ' + (data.error || '잠시 후 다시 시도해주세요.'));
+      let evaluatorName = null;
+      
+      // 1-1. 전용 백엔드 엔드포인트 호출 시도
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/anonymous-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && data.user?.name) {
+            evaluatorName = data.user.name;
+          }
+        }
+      } catch (endpointErr) {
+        console.warn('Dedicated endpoint failed, trying fallback:', endpointErr);
       }
+
+      // 1-2. 백엔드가 아직 구버전이거나 404일 경우 settings & 기존 평가결과 기반 자동 순번 계산 (폴백)
+      if (!evaluatorName) {
+        const [settingsData, resultsData] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/settings`).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+          fetch(`${API_BASE_URL}/api/admin/results`).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+        ]);
+
+        let counter = parseInt(settingsData?.anonymous_counter || '0', 10);
+        if (isNaN(counter) || counter < 0) counter = 0;
+
+        let maxNum = 0;
+        if (resultsData?.results && Array.isArray(resultsData.results)) {
+          for (const item of resultsData.results) {
+            const match = (item.name || '').match(/^평가자\s*(\d+)$/);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (num > maxNum) maxNum = num;
+            }
+          }
+        }
+
+        const nextNum = Math.max(counter, maxNum) + 1;
+        evaluatorName = `평가자 ${nextNum}`;
+
+        // settings 테이블에 새 번호 즉시 반영
+        await fetch(`${API_BASE_URL}/api/settings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ anonymous_counter: String(nextNum) })
+        }).catch(err => console.error('Failed to sync anonymous_counter:', err));
+      }
+
+      onLogin({ name: evaluatorName, role: 'USER', isAnonymous: true });
     } catch (err) {
       console.error(err);
-      alert('서버와 통신할 수 없습니다.');
+      alert('서버와 통신할 수 없습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
     }
