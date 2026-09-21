@@ -843,17 +843,14 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  {/* Completed Header (Clickable Accordion) */}
+                  {/* Completed Header */}
                   <div 
-                    onClick={() => !isEditing && toggleDeptExpand(evalData.department)}
                     style={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       alignItems: 'center', 
                       flexWrap: 'wrap', 
                       gap: '12px',
-                      cursor: isEditing ? 'default' : 'pointer',
-                      userSelect: 'none',
                       marginBottom: isExpanded ? '16px' : '0'
                     }}
                   >
@@ -885,28 +882,22 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                             type="button"
                             className="btn btn-secondary" 
                             style={{ padding: '4px 10px', fontSize: '12px', minHeight: '30px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartEditCompleted(idx, evalData);
-                            }}
+                            onClick={() => handleStartEditCompleted(idx, evalData)}
                           >
                             <Edit2 size={13} />
                             점수 수정
                           </button>
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleDeptExpand(evalData.department);
-                            }}
+                            onClick={() => toggleDeptExpand(evalData.department)}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '2px',
-                              background: 'none',
-                              border: '1px solid var(--surface-border)',
+                              gap: '4px',
+                              backgroundColor: isExpanded ? 'var(--surface-container)' : 'white',
+                              border: '1px solid var(--primary)',
                               borderRadius: '4px',
-                              padding: '4px 8px',
+                              padding: '4px 10px',
                               minHeight: '30px',
                               fontSize: '12px',
                               color: 'var(--primary)',
@@ -1029,15 +1020,25 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                               </button>
                             </>
                           ) : (
-                            <button 
-                              type="button"
-                              className="btn btn-secondary" 
-                              style={{ padding: '8px 14px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
-                              onClick={() => handleStartEditCompleted(idx, evalData)}
-                            >
-                              <Edit2 size={14} />
-                              점수 수정
-                            </button>
+                            <>
+                              <button 
+                                type="button"
+                                className="btn btn-secondary" 
+                                style={{ padding: '8px 14px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                onClick={() => handleStartEditCompleted(idx, evalData)}
+                              >
+                                <Edit2 size={14} />
+                                점수 수정
+                              </button>
+                              <button 
+                                type="button"
+                                className="btn btn-secondary" 
+                                style={{ padding: '8px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                onClick={() => toggleDeptExpand(evalData.department)}
+                              >
+                                접기 <ChevronUp size={14} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
