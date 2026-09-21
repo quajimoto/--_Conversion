@@ -102,7 +102,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     localStorage.setItem(getCompletedStorageKey(), JSON.stringify(completedEvaluations));
   }, [completedEvaluations, user?.name]);
 
-  // Sync completed evaluations from backend on mount
+  // Sync completed evaluations from backend on mount (DB is Single Source of Truth)
   useEffect(() => {
     if (!user?.name) return;
     fetch(`${API_BASE_URL}/api/admin/results`)
@@ -110,32 +110,21 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       .then(data => {
         if (data && data.results) {
           const myEvals = data.results.filter(r => r.name === user.name && !r.isDeleted);
-          if (myEvals.length > 0) {
-            const formatted = myEvals.map(ev => {
-              const sc = {};
-              criteria?.forEach(c => {
-                if (ev[c.id] !== undefined) sc[c.id] = ev[c.id];
-              });
-              return {
-                date: ev.date,
-                department: ev.department_name,
-                scores: sc,
-                totalScore: ev.total
-              };
+          const formatted = myEvals.map(ev => {
+            const sc = {};
+            criteria?.forEach(c => {
+              if (ev[c.id] !== undefined) sc[c.id] = ev[c.id];
             });
-            setCompletedEvaluations(prev => {
-              const merged = [...prev];
-              formatted.forEach(f => {
-                const idx = merged.findIndex(m => m.department === f.department);
-                if (idx >= 0) {
-                  merged[idx] = f;
-                } else {
-                  merged.push(f);
-                }
-              });
-              return merged;
-            });
-          }
+            return {
+              date: ev.date,
+              department: ev.department_name,
+              scores: sc,
+              totalScore: ev.total
+            };
+          });
+          // Match DB exactly: if deleted in DB, it is immediately deleted on client
+          setCompletedEvaluations(formatted);
+          localStorage.setItem(getCompletedStorageKey(), JSON.stringify(formatted));
         }
       })
       .catch(err => console.error('Failed to sync completed evaluations:', err));
