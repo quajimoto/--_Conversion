@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, LogOut, ArrowLeft, Users, Plus, Trash2, Edit2, Save, GripVertical, Download, Settings, RefreshCw, UserCheck } from 'lucide-react';
+import { BarChart3, LogOut, ArrowLeft, Users, Plus, Trash2, Edit2, Save, GripVertical, Download, Settings, RefreshCw, UserCheck, Trophy, Award, Medal, X, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../apiConfig';
@@ -27,6 +27,119 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   const [selectedAuthMode, setSelectedAuthMode] = useState(authMode || 'ANONYMOUS');
   const [anonCounter, setAnonCounter] = useState(0);
+
+  // 평가완료 및 1, 2, 3등 순위 발표 상태
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [completionTab, setCompletionTab] = useState('DEPT'); // 'DEPT' | 'EVALUATOR'
+  const [deptRankings, setDeptRankings] = useState([]);
+  const [evalRankings, setEvalRankings] = useState([]);
+
+  // 평가완료 버튼 클릭 핸들러 (최고점/최하점 제외 1, 2, 3등 순위 자동 산출)
+  const handleEvaluationComplete = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/results?department=전체&date=${date}`);
+      const data = await res.json();
+      const allResults = (data.results || []).filter(r => !r.isDeleted);
+
+      if (allResults.length === 0) {
+        alert('평가 완료를 진행할 제출된 평가 데이터가 없습니다.');
+        return;
+      }
+
+      // 1. 부서별 최고점/최하점 제외 유효 합계 계산
+      const byDept = {};
+      allResults.forEach(r => {
+        const d = r.department_name || '부서 미지정';
+        byDept[d] = byDept[d] || [];
+        byDept[d].push({ evaluator: r.name, score: Number(r.total) || 0, date: r.date });
+      });
+
+      const computedDeptRankings = Object.keys(byDept).map(dept => {
+        const list = [...byDept[dept]].sort((a, b) => a.score - b.score);
+        const count = list.length;
+        if (count >= 3) {
+          const min = list[0];
+          const max = list[list.length - 1];
+          const trimmed = list.slice(1, -1);
+          const sum = trimmed.reduce((s, it) => s + it.score, 0);
+          const avg = Number((sum / trimmed.length).toFixed(1));
+          return {
+            dept,
+            count,
+            min,
+            max,
+            trimmedCount: trimmed.length,
+            trimmedSum: Number.isInteger(sum) ? sum : Number(sum.toFixed(1)),
+            trimmedAvg: avg,
+            rawTotal: list.reduce((s, it) => s + it.score, 0)
+          };
+        } else {
+          const sum = list.reduce((s, it) => s + it.score, 0);
+          return {
+            dept,
+            count,
+            min: count > 0 ? list[0] : null,
+            max: count > 0 ? list[count - 1] : null,
+            trimmedCount: count,
+            trimmedSum: sum,
+            trimmedAvg: count > 0 ? Number((sum / count).toFixed(1)) : 0,
+            rawTotal: sum,
+            isNotEnough: true
+          };
+        }
+      }).sort((a, b) => b.trimmedSum - a.trimmedSum);
+
+      // 2. 평가자별 최고점/최하점 제외 유효 합계 계산
+      const byEval = {};
+      allResults.forEach(r => {
+        const name = r.name || '익명';
+        byEval[name] = byEval[name] || [];
+        byEval[name].push({ dept: r.department_name, score: Number(r.total) || 0, date: r.date });
+      });
+
+      const computedEvalRankings = Object.keys(byEval).map(name => {
+        const list = [...byEval[name]].sort((a, b) => a.score - b.score);
+        const count = list.length;
+        if (count >= 3) {
+          const min = list[0];
+          const max = list[list.length - 1];
+          const trimmed = list.slice(1, -1);
+          const sum = trimmed.reduce((s, it) => s + it.score, 0);
+          const avg = Number((sum / trimmed.length).toFixed(1));
+          return {
+            name,
+            count,
+            min,
+            max,
+            trimmedCount: trimmed.length,
+            trimmedSum: Number.isInteger(sum) ? sum : Number(sum.toFixed(1)),
+            trimmedAvg: avg,
+            rawTotal: list.reduce((s, it) => s + it.score, 0)
+          };
+        } else {
+          const sum = list.reduce((s, it) => s + it.score, 0);
+          return {
+            name,
+            count,
+            min: count > 0 ? list[0] : null,
+            max: count > 0 ? list[count - 1] : null,
+            trimmedCount: count,
+            trimmedSum: sum,
+            trimmedAvg: count > 0 ? Number((sum / count).toFixed(1)) : 0,
+            rawTotal: sum,
+            isNotEnough: true
+          };
+        }
+      }).sort((a, b) => b.trimmedSum - a.trimmedSum);
+
+      setDeptRankings(computedDeptRankings);
+      setEvalRankings(computedEvalRankings);
+      setIsCompletionModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      alert('평가 완료 순위 산출 중 오류가 발생했습니다: ' + err.message);
+    }
+  };
 
   const fetchAnonCounter = () => {
     fetch(`${API_BASE_URL}/api/anonymous-counter`)
@@ -712,17 +825,37 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button className="btn btn-primary" style={{ flex: '1 1 100px' }} onClick={() => handleFetchResults(selectedDept)}>
+                <button className="btn btn-primary" style={{ flex: '1 1 90px' }} onClick={() => handleFetchResults(selectedDept)}>
                   <BarChart3 size={18} />
                   조회
                 </button>
-                <button className="btn btn-secondary" style={{ flex: '1 1 120px', backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadExcel}>
+                <button className="btn btn-secondary" style={{ flex: '1 1 110px', backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadExcel}>
                   <Download size={18} />
                   선택부서 다운
                 </button>
-                <button className="btn btn-secondary" style={{ flex: '1 1 120px', backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadAllExcel}>
+                <button className="btn btn-secondary" style={{ flex: '1 1 110px', backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }} onClick={handleDownloadAllExcel}>
                   <Download size={18} />
                   전체 다운
+                </button>
+                <button 
+                  type="button"
+                  className="btn btn-primary" 
+                  style={{ 
+                    flex: '1 1 140px', 
+                    background: 'linear-gradient(135deg, #e67e22 0%, #d35400 100%)', 
+                    color: 'white', 
+                    borderColor: '#d35400',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 14px rgba(211, 84, 0, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }} 
+                  onClick={handleEvaluationComplete}
+                >
+                  <Trophy size={18} color="#fff" />
+                  평가완료 (순위 발표)
                 </button>
               </div>
             </div>
@@ -1148,6 +1281,470 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         )}
 
       </div>
+
+      {/* 🏆 평가완료 및 최종 순위 발표 모달 (부서별, 평가자별 최고/최하 제외 1, 2, 3등) */}
+      {isCompletionModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '820px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: 0,
+            overflow: 'hidden',
+            borderRadius: '16px',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
+            border: '2px solid var(--primary)',
+            backgroundColor: 'white'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1a6477 0%, #0d4250 100%)',
+              color: 'white',
+              padding: '18px 24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: '50%',
+                  padding: '10px',
+                  display: 'flex'
+                }}>
+                  <Trophy size={26} color="#ffd700" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: 'white' }}>
+                    경진대회 평가 완료 및 최종 순위 (1, 2, 3등)
+                  </h3>
+                  <p style={{ fontSize: '12px', opacity: 0.85, margin: '3px 0 0', color: 'rgba(255,255,255,0.9)' }}>
+                    최고점(1개)과 최하점(1개)을 제외한 유효 합계 점수 기준 랭킹
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setIsCompletionModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Tab Controls */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '1px solid var(--surface-border)',
+              backgroundColor: 'var(--surface-container-lowest)'
+            }}>
+              <button 
+                type="button"
+                style={{
+                  flex: 1,
+                  padding: '13px 16px',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: completionTab === 'DEPT' ? '3px solid var(--primary)' : '3px solid transparent',
+                  color: completionTab === 'DEPT' ? 'var(--primary)' : 'var(--text-sub)',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setCompletionTab('DEPT')}
+              >
+                <Award size={18} />
+                부서별 최종 순위 (시상 부서)
+              </button>
+              <button 
+                type="button"
+                style={{
+                  flex: 1,
+                  padding: '13px 16px',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: completionTab === 'EVALUATOR' ? '3px solid var(--primary)' : '3px solid transparent',
+                  color: completionTab === 'EVALUATOR' ? 'var(--primary)' : 'var(--text-sub)',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setCompletionTab('EVALUATOR')}
+              >
+                <Users size={18} />
+                평가자별 최종 순위 (심사위원)
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+              {completionTab === 'DEPT' && (
+                <div>
+                  <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+                    <h4 className="title-md" style={{ color: 'var(--primary)', marginBottom: '4px' }}>
+                      🏆 부서별 최종 순위 (최고/최하점 제외 유효 합계)
+                    </h4>
+                    <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
+                      각 부서가 심사위원들로부터 받은 점수 중 최고점(1건)과 최하점(1건)을 제외하고 합산한 최종 결과입니다.
+                    </span>
+                  </div>
+
+                  {/* 1, 2, 3등 시상대 (Podium Cards) */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    alignItems: 'end'
+                  }}>
+                    {/* 2등 (은상) */}
+                    {deptRankings.length > 1 && (
+                      <div style={{
+                        backgroundColor: '#f8fafc',
+                        border: '2px solid #cbd5e1',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        textAlign: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                        order: 1
+                      }}>
+                        <div style={{ display: 'inline-flex', padding: '4px 12px', borderRadius: '16px', backgroundColor: '#94a3b8', color: 'white', fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>
+                          🥈 2등 (은상)
+                        </div>
+                        <h5 style={{ fontSize: '19px', fontWeight: 'bold', margin: '4px 0', color: 'var(--text-main)' }}>
+                          {deptRankings[1].dept}
+                        </h5>
+                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#475569', margin: '6px 0' }}>
+                          {deptRankings[1].trimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>
+                          유효평균: <strong>{deptRankings[1].trimmedAvg}점</strong> ({deptRankings[1].trimmedCount}명 반영)
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
+                          <div>🔺 최고 제외: {deptRankings[1].max?.score}점 ({deptRankings[1].max?.evaluator})</div>
+                          <div>🔻 최하 제외: {deptRankings[1].min?.score}점 ({deptRankings[1].min?.evaluator})</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 1등 (대상/금상 - 가장 강조) */}
+                    {deptRankings.length > 0 && (
+                      <div style={{
+                        background: 'linear-gradient(180deg, #fffdf0 0%, #fff9d6 100%)',
+                        border: '2.5px solid #eab308',
+                        borderRadius: '14px',
+                        padding: '22px 16px',
+                        textAlign: 'center',
+                        boxShadow: '0 8px 24px rgba(234, 179, 8, 0.25)',
+                        transform: 'translateY(-6px)',
+                        order: 2
+                      }}>
+                        <div style={{ display: 'inline-flex', padding: '6px 16px', borderRadius: '20px', backgroundColor: '#eab308', color: '#422006', fontWeight: '900', fontSize: '14px', marginBottom: '8px', boxShadow: '0 2px 6px rgba(234,179,8,0.3)' }}>
+                          🥇 1등 (대상 / 금상)
+                        </div>
+                        <h5 style={{ fontSize: '23px', fontWeight: '900', margin: '6px 0', color: '#854d0e' }}>
+                          {deptRankings[0].dept}
+                        </h5>
+                        <div style={{ fontSize: '36px', fontWeight: '900', color: '#a16207', margin: '8px 0' }}>
+                          {deptRankings[0].trimmedSum}<span style={{ fontSize: '16px', fontWeight: 'bold', color: '#ca8a04' }}>점</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#854d0e', fontWeight: 'bold' }}>
+                          유효평균: {deptRankings[0].trimmedAvg}점 ({deptRankings[0].trimmedCount}명 반영)
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#713f12', marginTop: '10px', borderTop: '1px solid #fef08a', paddingTop: '8px' }}>
+                          <div>🔺 최고 제외: {deptRankings[0].max?.score}점 ({deptRankings[0].max?.evaluator})</div>
+                          <div>🔻 최하 제외: {deptRankings[0].min?.score}점 ({deptRankings[0].min?.evaluator})</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3등 (동상) */}
+                    {deptRankings.length > 2 && (
+                      <div style={{
+                        backgroundColor: '#fffaf5',
+                        border: '2px solid #fdba74',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        textAlign: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                        order: 3
+                      }}>
+                        <div style={{ display: 'inline-flex', padding: '4px 12px', borderRadius: '16px', backgroundColor: '#c2410c', color: 'white', fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>
+                          🥉 3등 (동상)
+                        </div>
+                        <h5 style={{ fontSize: '19px', fontWeight: 'bold', margin: '4px 0', color: 'var(--text-main)' }}>
+                          {deptRankings[2].dept}
+                        </h5>
+                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#9a3412', margin: '6px 0' }}>
+                          {deptRankings[2].trimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>
+                          유효평균: <strong>{deptRankings[2].trimmedAvg}점</strong> ({deptRankings[2].trimmedCount}명 반영)
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '8px', borderTop: '1px solid #fed7aa', paddingTop: '6px' }}>
+                          <div>🔺 최고 제외: {deptRankings[2].max?.score}점 ({deptRankings[2].max?.evaluator})</div>
+                          <div>🔻 최하 제외: {deptRankings[2].min?.score}점 ({deptRankings[2].min?.evaluator})</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 전체 부서 순위 목록 테이블 */}
+                  <h5 className="title-sm" style={{ marginBottom: '8px', color: 'var(--text-sub)' }}>
+                    전체 부서 순위 결과 ({deptRankings.length}개 부서)
+                  </h5>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--surface-border)', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                      <thead style={{ backgroundColor: 'var(--surface-header)', borderBottom: '1px solid var(--surface-border)' }}>
+                        <tr>
+                          <th style={{ padding: '10px' }}>순위</th>
+                          <th style={{ padding: '10px' }}>부서명</th>
+                          <th style={{ padding: '10px' }}>심사수</th>
+                          <th style={{ padding: '10px' }}>최고 제외</th>
+                          <th style={{ padding: '10px' }}>최하 제외</th>
+                          <th style={{ padding: '10px', textAlign: 'right' }}>유효 합계</th>
+                          <th style={{ padding: '10px', textAlign: 'right' }}>유효 평균</th>
+                          <th style={{ padding: '10px', textAlign: 'right' }}>원점수 총합</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deptRankings.map((d, idx) => (
+                          <tr key={d.dept} style={{ borderBottom: '1px solid var(--surface-border)', backgroundColor: idx < 3 ? 'rgba(255, 249, 196, 0.25)' : 'white' }}>
+                            <td style={{ padding: '10px', fontWeight: 'bold' }}>
+                              {idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}
+                            </td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: 'var(--primary)' }}>{d.dept}</td>
+                            <td style={{ padding: '10px' }}>{d.count}명</td>
+                            <td style={{ padding: '10px', fontSize: '12px', color: '#cf1322' }}>
+                              {d.max ? `${d.max.score}점 (${d.max.evaluator})` : '-'}
+                            </td>
+                            <td style={{ padding: '10px', fontSize: '12px', color: '#096dd9' }}>
+                              {d.min ? `${d.min.score}점 (${d.min.evaluator})` : '-'}
+                            </td>
+                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: '900', color: 'var(--primary)', fontSize: '14px' }}>
+                              {d.trimmedSum}점
+                            </td>
+                            <td style={{ padding: '10px', textAlign: 'right' }}>{d.trimmedAvg}점</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'var(--text-sub)' }}>{d.rawTotal}점</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {completionTab === 'EVALUATOR' && (
+                <div>
+                  <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+                    <h4 className="title-md" style={{ color: 'var(--primary)', marginBottom: '4px' }}>
+                      👤 평가자별 최종 순위 (최고/최하점 제외 유효 합계)
+                    </h4>
+                    <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
+                      각 평가자가 평가한 부서 점수 중 최고점(1개)과 최하점(1개)을 제외하고 합산한 랭킹입니다.
+                    </span>
+                  </div>
+
+                  {/* 평가자 1, 2, 3등 시상대 */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    alignItems: 'end'
+                  }}>
+                    {/* 2등 */}
+                    {evalRankings.length > 1 && (
+                      <div style={{
+                        backgroundColor: '#f8fafc',
+                        border: '2px solid #cbd5e1',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        textAlign: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                        order: 1
+                      }}>
+                        <div style={{ display: 'inline-flex', padding: '4px 12px', borderRadius: '16px', backgroundColor: '#94a3b8', color: 'white', fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>
+                          🥈 2등 평가자
+                        </div>
+                        <h5 style={{ fontSize: '19px', fontWeight: 'bold', margin: '4px 0', color: 'var(--text-main)' }}>
+                          {evalRankings[1].name}
+                        </h5>
+                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#475569', margin: '6px 0' }}>
+                          {evalRankings[1].trimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>
+                          유효평균: <strong>{evalRankings[1].trimmedAvg}점</strong> ({evalRankings[1].trimmedCount}개 부서 반영)
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
+                          <div>🔺 최고 제외: {evalRankings[1].max?.score}점 ({evalRankings[1].max?.dept})</div>
+                          <div>🔻 최하 제외: {evalRankings[1].min?.score}점 ({evalRankings[1].min?.dept})</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 1등 */}
+                    {evalRankings.length > 0 && (
+                      <div style={{
+                        background: 'linear-gradient(180deg, #fffdf0 0%, #fff9d6 100%)',
+                        border: '2.5px solid #eab308',
+                        borderRadius: '14px',
+                        padding: '22px 16px',
+                        textAlign: 'center',
+                        boxShadow: '0 8px 24px rgba(234, 179, 8, 0.25)',
+                        transform: 'translateY(-6px)',
+                        order: 2
+                      }}>
+                        <div style={{ display: 'inline-flex', padding: '6px 16px', borderRadius: '20px', backgroundColor: '#eab308', color: '#422006', fontWeight: '900', fontSize: '14px', marginBottom: '8px', boxShadow: '0 2px 6px rgba(234,179,8,0.3)' }}>
+                          🥇 1등 평가자
+                        </div>
+                        <h5 style={{ fontSize: '23px', fontWeight: '900', margin: '6px 0', color: '#854d0e' }}>
+                          {evalRankings[0].name}
+                        </h5>
+                        <div style={{ fontSize: '36px', fontWeight: '900', color: '#a16207', margin: '8px 0' }}>
+                          {evalRankings[0].trimmedSum}<span style={{ fontSize: '16px', fontWeight: 'bold', color: '#ca8a04' }}>점</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#854d0e', fontWeight: 'bold' }}>
+                          유효평균: {evalRankings[0].trimmedAvg}점 ({evalRankings[0].trimmedCount}개 부서 반영)
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#713f12', marginTop: '10px', borderTop: '1px solid #fef08a', paddingTop: '8px' }}>
+                          <div>🔺 최고 제외: {evalRankings[0].max?.score}점 ({evalRankings[0].max?.dept})</div>
+                          <div>🔻 최하 제외: {evalRankings[0].min?.score}점 ({evalRankings[0].min?.dept})</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3등 */}
+                    {evalRankings.length > 2 && (
+                      <div style={{
+                        backgroundColor: '#fffaf5',
+                        border: '2px solid #fdba74',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        textAlign: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                        order: 3
+                      }}>
+                        <div style={{ display: 'inline-flex', padding: '4px 12px', borderRadius: '16px', backgroundColor: '#c2410c', color: 'white', fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>
+                          🥉 3등 평가자
+                        </div>
+                        <h5 style={{ fontSize: '19px', fontWeight: 'bold', margin: '4px 0', color: 'var(--text-main)' }}>
+                          {evalRankings[2].name}
+                        </h5>
+                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#9a3412', margin: '6px 0' }}>
+                          {evalRankings[2].trimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>
+                          유효평균: <strong>{evalRankings[2].trimmedAvg}점</strong> ({evalRankings[2].trimmedCount}개 부서 반영)
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '8px', borderTop: '1px solid #fed7aa', paddingTop: '6px' }}>
+                          <div>🔺 최고 제외: {evalRankings[2].max?.score}점 ({evalRankings[2].max?.dept})</div>
+                          <div>🔻 최하 제외: {evalRankings[2].min?.score}점 ({evalRankings[2].min?.dept})</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 전체 평가자 순위 목록 테이블 */}
+                  <h5 className="title-sm" style={{ marginBottom: '8px', color: 'var(--text-sub)' }}>
+                    전체 평가자 순위 결과 ({evalRankings.length}명)
+                  </h5>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--surface-border)', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                      <thead style={{ backgroundColor: 'var(--surface-header)', borderBottom: '1px solid var(--surface-border)' }}>
+                        <tr>
+                          <th style={{ padding: '10px' }}>순위</th>
+                          <th style={{ padding: '10px' }}>평가자명</th>
+                          <th style={{ padding: '10px' }}>평가 부서수</th>
+                          <th style={{ padding: '10px' }}>최고 제외</th>
+                          <th style={{ padding: '10px' }}>최하 제외</th>
+                          <th style={{ padding: '10px', textAlign: 'right' }}>유효 합계</th>
+                          <th style={{ padding: '10px', textAlign: 'right' }}>유효 평균</th>
+                          <th style={{ padding: '10px', textAlign: 'right' }}>원점수 총합</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {evalRankings.map((e, idx) => (
+                          <tr key={e.name} style={{ borderBottom: '1px solid var(--surface-border)', backgroundColor: idx < 3 ? 'rgba(255, 249, 196, 0.25)' : 'white' }}>
+                            <td style={{ padding: '10px', fontWeight: 'bold' }}>
+                              {idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}
+                            </td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: 'var(--primary)' }}>{e.name}</td>
+                            <td style={{ padding: '10px' }}>{e.count}개</td>
+                            <td style={{ padding: '10px', fontSize: '12px', color: '#cf1322' }}>
+                              {e.max ? `${e.max.score}점 (${e.max.dept})` : '-'}
+                            </td>
+                            <td style={{ padding: '10px', fontSize: '12px', color: '#096dd9' }}>
+                              {e.min ? `${e.min.score}점 (${e.min.dept})` : '-'}
+                            </td>
+                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: '900', color: 'var(--primary)', fontSize: '14px' }}>
+                              {e.trimmedSum}점
+                            </td>
+                            <td style={{ padding: '10px', textAlign: 'right' }}>{e.trimmedAvg}점</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'var(--text-sub)' }}>{e.rawTotal}점</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '14px 20px',
+              borderTop: '1px solid var(--surface-border)',
+              backgroundColor: 'var(--surface-header)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px'
+            }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ backgroundColor: '#107c41', color: 'white', borderColor: '#107c41', fontSize: '13px' }}
+                onClick={handleDownloadAllExcel}
+              >
+                <Download size={16} /> 엑셀 전체 다운로드
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ minWidth: '100px', fontSize: '13px' }}
+                onClick={() => setIsCompletionModalOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
