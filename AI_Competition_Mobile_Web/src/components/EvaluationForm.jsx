@@ -881,7 +881,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                           <button 
                             type="button"
                             className="btn btn-secondary" 
-                            style={{ padding: '4px 10px', fontSize: '12px', minHeight: '30px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            style={{ padding: '4px 10px', fontSize: '12px', height: '32px', minHeight: '32px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px', boxSizing: 'border-box' }}
                             onClick={() => handleStartEditCompleted(idx, evalData)}
                           >
                             <Edit2 size={13} />
@@ -893,16 +893,21 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
+                              justifyContent: 'center',
                               gap: '4px',
-                              backgroundColor: isExpanded ? 'var(--surface-container)' : 'white',
+                              backgroundColor: isExpanded ? 'var(--surface-container-low, #f2f4f5)' : 'white',
                               border: '1px solid var(--primary)',
                               borderRadius: '4px',
-                              padding: '4px 10px',
-                              minHeight: '30px',
+                              width: '95px',
+                              minWidth: '95px',
+                              height: '32px',
+                              minHeight: '32px',
                               fontSize: '12px',
                               color: 'var(--primary)',
                               cursor: 'pointer',
-                              fontWeight: '600'
+                              fontWeight: '600',
+                              boxSizing: 'border-box',
+                              transition: 'background-color 0.15s ease'
                             }}
                           >
                             {isExpanded ? (
@@ -1020,25 +1025,15 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                               </button>
                             </>
                           ) : (
-                            <>
-                              <button 
-                                type="button"
-                                className="btn btn-secondary" 
-                                style={{ padding: '8px 14px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                onClick={() => handleStartEditCompleted(idx, evalData)}
-                              >
-                                <Edit2 size={14} />
-                                점수 수정
-                              </button>
-                              <button 
-                                type="button"
-                                className="btn btn-secondary" 
-                                style={{ padding: '8px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                onClick={() => toggleDeptExpand(evalData.department)}
-                              >
-                                접기 <ChevronUp size={14} />
-                              </button>
-                            </>
+                            <button 
+                              type="button"
+                              className="btn btn-secondary" 
+                              style={{ padding: '8px 14px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              onClick={() => handleStartEditCompleted(idx, evalData)}
+                            >
+                              <Edit2 size={14} />
+                              점수 수정
+                            </button>
                           )}
                         </div>
                       </div>
