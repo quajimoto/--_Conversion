@@ -268,36 +268,48 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   };
 
   const handleDownloadExcel = () => {
+    if (!results || results.length === 0) {
+      alert('다운로드할 평가 데이터가 없습니다.');
+      return;
+    }
     const criteriaLabels = criteria.map(c => c.label);
-    const emptyColsForCriteria = Array(criteriaLabels.length > 0 ? criteriaLabels.length - 1 : 0).fill('');
+    const validRows = results.filter(r => !r.isDeleted).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     
-    const headerRow1 = ['평가 날짜', '심사위원', '부서', '평가항목', ...emptyColsForCriteria, '총점'];
-    const headerRow2 = ['', '', '', ...criteriaLabels, ''];
+    const headerRow = ['부서명', '심사위원', '평가 날짜', ...criteriaLabels, '총점'];
     
-    const rows = results.map(r => {
-      const scores = criteria.map(c => r[c.id] || 0);
+    const criteriaTotals = {};
+    criteria.forEach(c => { criteriaTotals[c.id] = 0; });
+    let totalScoreSum = 0;
+
+    const dataRows = validRows.map(r => {
+      const scores = criteria.map(c => {
+        const sc = Number(r[c.id]) || 0;
+        criteriaTotals[c.id] += sc;
+        return sc;
+      });
+      const rowTotal = Number(r.total) || 0;
+      totalScoreSum += rowTotal;
+
       let evalDate = '';
       try { evalDate = new Date(r.date).toISOString().split('T')[0]; } catch(e) { evalDate = r.date; }
-      return [evalDate, r.name, r.department_name || selectedDept || '전체', ...scores, r.total];
+      return [r.department_name || selectedDept || '부서', r.name, evalDate, ...scores, rowTotal];
     });
 
-    const wsData = [headerRow1, headerRow2, ...rows];
+    // 평가항목별 총점 및 평균 소계 추가
+    const criteriaTotalRow = criteria.map(c => criteriaTotals[c.id]);
+    const criteriaAvgRow = criteria.map(c => validRows.length > 0 ? Number((criteriaTotals[c.id] / validRows.length).toFixed(1)) : 0);
+    const totalScoreAvg = validRows.length > 0 ? Number((totalScoreSum / validRows.length).toFixed(1)) : 0;
+
+    const totalRow = ['총점 합계', `심사 ${validRows.length}명`, '항목별 총점', ...criteriaTotalRow, totalScoreSum];
+    const avgRow = ['평균', '', '항목별 평균', ...criteriaAvgRow, totalScoreAvg];
+
+    const wsData = [headerRow, ...dataRows, [], totalRow, avgRow];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
-    const merges = [
-      { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } },
-      { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } },
-      { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } },
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 14 }, { wch: 16 },
+      ...criteria.map(() => ({ wch: 14 })),
+      { wch: 14 }
     ];
-    
-    if (criteriaLabels.length > 0) {
-      merges.push({ s: { r: 0, c: 3 }, e: { r: 0, c: 3 + criteriaLabels.length - 1 } });
-      merges.push({ s: { r: 0, c: 3 + criteriaLabels.length }, e: { r: 1, c: 3 + criteriaLabels.length } });
-    } else {
-      merges.push({ s: { r: 0, c: 3 }, e: { r: 1, c: 3 } });
-    }
-    
-    ws['!merges'] = merges;
     
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "평가결과");
@@ -308,79 +320,260 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/results?department=전체&date=${date}`);
       const data = await res.json();
-      if (data.results) {
-        const criteriaLabels = criteria.map(c => c.label);
-        const emptyColsForCriteria = Array(criteriaLabels.length > 0 ? criteriaLabels.length - 1 : 0).fill('');
-        
-        const headerRow1 = ['평가 날짜', '심사위원', '부서', '평가항목', ...emptyColsForCriteria, '총점'];
-        const headerRow2 = ['', '', '', ...criteriaLabels, ''];
-        
-        const rows = data.results.map(r => {
-          const scores = criteria.map(c => r[c.id] || 0);
+      if (!data.results || data.results.length === 0) {
+        alert('다운로드할 평가 데이터가 없습니다.');
+        return;
+      }
+
+      const validResults = data.results.filter(r => !r.isDeleted);
+      const criteriaLabels = criteria.map(c => c.label);
+      const wb = XLSX.utils.book_new();
+
+      // ----------------------------------------------------
+      // 시트 1: [부서별_상세내역] (부서별 기준 정리 + 평가항목별 총점/평균 소계 + 전체 총계)
+      // ----------------------------------------------------
+      const getDeptOrder = (deptName) => {
+        const idx = departments.indexOf(deptName);
+        return idx !== -1 ? idx : 9999;
+      };
+
+      const deptGroups = {};
+      validResults.forEach(r => {
+        const d = r.department_name || '부서 미지정';
+        deptGroups[d] = deptGroups[d] || [];
+        deptGroups[d].push(r);
+      });
+
+      const sortedDeptNames = Object.keys(deptGroups).sort((a, b) => {
+        const ordA = getDeptOrder(a);
+        const ordB = getDeptOrder(b);
+        if (ordA !== ordB) return ordA - ordB;
+        return a.localeCompare(b);
+      });
+
+      const sheet1Header = ['부서명', '심사위원', '평가 일자', ...criteriaLabels, '총점'];
+      const sheet1Rows = [sheet1Header];
+
+      const grandCriteriaTotals = {};
+      criteria.forEach(c => { grandCriteriaTotals[c.id] = 0; });
+      let grandTotalScore = 0;
+
+      sortedDeptNames.forEach(deptName => {
+        const items = deptGroups[deptName].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        const deptCriteriaTotals = {};
+        criteria.forEach(c => { deptCriteriaTotals[c.id] = 0; });
+        let deptTotalScore = 0;
+
+        items.forEach(r => {
+          const scores = criteria.map(c => {
+            const sc = Number(r[c.id]) || 0;
+            deptCriteriaTotals[c.id] += sc;
+            grandCriteriaTotals[c.id] += sc;
+            return sc;
+          });
+          const rowTotal = Number(r.total) || 0;
+          deptTotalScore += rowTotal;
+          grandTotalScore += rowTotal;
+
           let evalDate = '';
           try { evalDate = new Date(r.date).toISOString().split('T')[0]; } catch(e) { evalDate = r.date; }
-          return [evalDate, r.name, r.department_name || '부서', ...scores, r.total];
+
+          sheet1Rows.push([r.department_name, r.name, evalDate, ...scores, rowTotal]);
         });
 
-        const wsData = [headerRow1, headerRow2, ...rows];
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        
-        const merges = [
-          { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } },
-          { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } },
-          { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } },
-        ];
-        
-        if (criteriaLabels.length > 0) {
-          merges.push({ s: { r: 0, c: 3 }, e: { r: 0, c: 3 + criteriaLabels.length - 1 } });
-          merges.push({ s: { r: 0, c: 3 + criteriaLabels.length }, e: { r: 1, c: 3 + criteriaLabels.length } });
+        // 부서 소계: 평가항목별 총점
+        const deptCriteriaTotalRow = criteria.map(c => deptCriteriaTotals[c.id]);
+        sheet1Rows.push([
+          `${deptName} [항목별 총점]`,
+          `심사 ${items.length}명`,
+          '소계(합계)',
+          ...deptCriteriaTotalRow,
+          deptTotalScore
+        ]);
+
+        // 부서 소계: 평가항목별 평균
+        const deptCriteriaAvgRow = criteria.map(c => Number((deptCriteriaTotals[c.id] / items.length).toFixed(1)));
+        const deptAvgTotal = Number((deptTotalScore / items.length).toFixed(1));
+        sheet1Rows.push([
+          `${deptName} [항목별 평균]`,
+          '',
+          '소계(평균)',
+          ...deptCriteriaAvgRow,
+          deptAvgTotal
+        ]);
+
+        // 부서 간 구분을 위한 빈 줄
+        sheet1Rows.push([]);
+      });
+
+      // 전체 총계 (Grand Total)
+      const grandCriteriaTotalRow = criteria.map(c => grandCriteriaTotals[c.id]);
+      const grandCriteriaAvgRow = criteria.map(c => Number((grandCriteriaTotals[c.id] / validResults.length).toFixed(1)));
+      const grandAvgTotal = Number((grandTotalScore / validResults.length).toFixed(1));
+
+      sheet1Rows.push([
+        '전체 총점 합계',
+        `전체 ${validResults.length}건`,
+        '전체 항목별 총점',
+        ...grandCriteriaTotalRow,
+        grandTotalScore
+      ]);
+      sheet1Rows.push([
+        '전체 평균',
+        '',
+        '전체 항목별 평균',
+        ...grandCriteriaAvgRow,
+        grandAvgTotal
+      ]);
+
+      const ws1 = XLSX.utils.aoa_to_sheet(sheet1Rows);
+      ws1['!cols'] = [
+        { wch: 18 }, { wch: 14 }, { wch: 16 },
+        ...criteria.map(() => ({ wch: 14 })),
+        { wch: 14 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws1, "부서별_상세내역");
+
+      // ----------------------------------------------------
+      // 시트 2: [부서별_종합집계] (부서 순위, 부서별 평가항목 총점, 평가항목 평균, 부서 총점)
+      // ----------------------------------------------------
+      const criteriaTotalHeaders = criteria.map(c => `${c.label} (총점)`);
+      const criteriaAvgHeaders = criteria.map(c => `${c.label} (평균)`);
+      const sheet2Header = [
+        '순위',
+        '부서명',
+        '심사 건수',
+        ...criteriaTotalHeaders,
+        ...criteriaAvgHeaders,
+        '부서 종합 총점',
+        '부서 종합 평균'
+      ];
+
+      const deptSummaryList = sortedDeptNames.map(deptName => {
+        const items = deptGroups[deptName];
+        const count = items.length;
+        const cTotals = {};
+        criteria.forEach(c => {
+          cTotals[c.id] = items.reduce((s, r) => s + (Number(r[c.id]) || 0), 0);
+        });
+        const total = items.reduce((s, r) => s + (Number(r.total) || 0), 0);
+        const avgTotal = Number((total / count).toFixed(1));
+        return {
+          deptName,
+          count,
+          cTotals,
+          total,
+          avgTotal
+        };
+      }).sort((a, b) => b.total - a.total); // 종합 총점 내림차순 정렬
+
+      const sheet2Rows = [sheet2Header];
+      deptSummaryList.forEach((d, idx) => {
+        const cTotalVals = criteria.map(c => d.cTotals[c.id]);
+        const cAvgVals = criteria.map(c => Number((d.cTotals[c.id] / d.count).toFixed(1)));
+        sheet2Rows.push([
+          `${idx + 1}위`,
+          d.deptName,
+          d.count,
+          ...cTotalVals,
+          ...cAvgVals,
+          d.total,
+          d.avgTotal
+        ]);
+      });
+
+      // 종합 합계 행
+      sheet2Rows.push([
+        '총계',
+        '전체 부서',
+        validResults.length,
+        ...grandCriteriaTotalRow,
+        ...grandCriteriaAvgRow,
+        grandTotalScore,
+        grandAvgTotal
+      ]);
+
+      const ws2 = XLSX.utils.aoa_to_sheet(sheet2Rows);
+      ws2['!cols'] = [
+        { wch: 8 }, { wch: 18 }, { wch: 10 },
+        ...criteria.map(() => ({ wch: 15 })),
+        ...criteria.map(() => ({ wch: 15 })),
+        { wch: 15 }, { wch: 15 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws2, "부서별_종합집계");
+
+      // ----------------------------------------------------
+      // 시트 3: [부서x심사위원_점수표] (Pivot Matrix)
+      // ----------------------------------------------------
+      const allEvaluatorNames = Array.from(new Set(validResults.map(r => r.name))).sort((a, b) => a.localeCompare(b));
+      const sheet3Header = ['부서명', ...allEvaluatorNames, '부서 총점', '부서 평균'];
+      const sheet3Rows = [sheet3Header];
+
+      sortedDeptNames.forEach(deptName => {
+        const items = deptGroups[deptName];
+        const evalScoreMap = {};
+        items.forEach(r => { evalScoreMap[r.name] = r.total; });
+
+        const scoresByEval = allEvaluatorNames.map(name => evalScoreMap[name] !== undefined ? evalScoreMap[name] : '-');
+        const deptTotal = items.reduce((s, r) => s + (Number(r.total) || 0), 0);
+        const deptAvg = Number((deptTotal / items.length).toFixed(1));
+
+        sheet3Rows.push([deptName, ...scoresByEval, deptTotal, deptAvg]);
+      });
+
+      // 심사위원별 합계 행
+      const evalTotals = allEvaluatorNames.map(name => {
+        const evals = validResults.filter(r => r.name === name);
+        return evals.reduce((s, r) => s + (Number(r.total) || 0), 0);
+      });
+      sheet3Rows.push(['심사위원별 합계', ...evalTotals, grandTotalScore, grandAvgTotal]);
+
+      const ws3 = XLSX.utils.aoa_to_sheet(sheet3Rows);
+      ws3['!cols'] = [{ wch: 18 }, ...allEvaluatorNames.map(() => ({ wch: 12 })), { wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, ws3, "부서x심사위원_점수표");
+
+      // ----------------------------------------------------
+      // 시트 4: [평가자별_최고최하제외] (심사위원 기준 최고·최하점 제외 유효 합계)
+      // ----------------------------------------------------
+      const byEvalData = {};
+      validResults.forEach(r => {
+        byEvalData[r.name] = byEvalData[r.name] || [];
+        byEvalData[r.name].push(r);
+      });
+
+      const evalSheetHeader = ['심사위원', '평가 부서수', '최고점(제외 부서)', '최고점', '최하점(제외 부서)', '최하점', '최고·최하 제외 합계', '유효 평균', '전체 원점수 총합'];
+      const evalSheetRows = Object.keys(byEvalData).map(name => {
+        const items = byEvalData[name];
+        const sorted = [...items].sort((a, b) => a.total - b.total);
+        const count = sorted.length;
+        const rawTotal = sorted.reduce((sum, item) => sum + item.total, 0);
+
+        if (count >= 3) {
+          const min = sorted[0];
+          const max = sorted[sorted.length - 1];
+          const trimmed = sorted.slice(1, -1);
+          const sum = trimmed.reduce((s, it) => s + it.total, 0);
+          const avg = (sum / trimmed.length).toFixed(1);
+          return [name, count, `${max.department_name} (${max.total}점)`, max.total, `${min.department_name} (${min.total}점)`, min.total, sum, Number(avg), rawTotal];
         } else {
-          merges.push({ s: { r: 0, c: 3 }, e: { r: 1, c: 3 } });
+          return [name, count, '-', '-', '-', '-', '-', '-', rawTotal];
         }
-        
-        ws['!merges'] = merges;
-        
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "상세결과");
+      }).sort((a, b) => {
+        const scoreA = typeof a[6] === 'number' ? a[6] : -1;
+        const scoreB = typeof b[6] === 'number' ? b[6] : -1;
+        return scoreB - scoreA;
+      });
 
-        // 2. 평가자별 집계 시트 (최고/최하점 제외 유효 합계 포함)
-        const byEvalData = {};
-        data.results.forEach(r => {
-          byEvalData[r.name] = byEvalData[r.name] || [];
-          byEvalData[r.name].push(r);
-        });
+      const ws4 = XLSX.utils.aoa_to_sheet([evalSheetHeader, ...evalSheetRows]);
+      ws4['!cols'] = [
+        { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 10 }, { wch: 22 }, { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 16 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws4, "평가자별_최고최하제외");
 
-        const evalSheetHeader = ['심사위원', '평가 부서수', '최고점(제외 부서)', '최고점', '최하점(제외 부서)', '최하점', '최고·최하 제외 합계', '유효 평균', '전체 원점수 총합'];
-        const evalSheetRows = Object.keys(byEvalData).map(name => {
-          const items = byEvalData[name];
-          const sorted = [...items].sort((a, b) => a.total - b.total);
-          const count = sorted.length;
-          const rawTotal = sorted.reduce((sum, item) => sum + item.total, 0);
-
-          if (count >= 3) {
-            const min = sorted[0];
-            const max = sorted[sorted.length - 1];
-            const trimmed = sorted.slice(1, -1);
-            const sum = trimmed.reduce((s, it) => s + it.total, 0);
-            const avg = (sum / trimmed.length).toFixed(1);
-            return [name, count, `${max.department_name} (${max.total}점)`, max.total, `${min.department_name} (${min.total}점)`, min.total, sum, Number(avg), rawTotal];
-          } else {
-            return [name, count, '-', '-', '-', '-', '-', '-', rawTotal];
-          }
-        }).sort((a, b) => {
-          const scoreA = typeof a[6] === 'number' ? a[6] : -1;
-          const scoreB = typeof b[6] === 'number' ? b[6] : -1;
-          return scoreB - scoreA;
-        });
-
-        const wsEval = XLSX.utils.aoa_to_sheet([evalSheetHeader, ...evalSheetRows]);
-        XLSX.utils.book_append_sheet(wb, wsEval, "평가자별_최고최하제외");
-
-        XLSX.writeFile(wb, `전체_평가결과_${date}.xlsx`);
-      }
+      XLSX.writeFile(wb, `전체_평가결과_${date}.xlsx`);
     } catch (e) {
       console.error(e);
-      alert('전체 데이터를 불러오는데 실패했습니다.');
+      alert('전체 데이터를 불러오는데 실패했습니다: ' + e.message);
     }
   };
 
