@@ -46,48 +46,118 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         return;
       }
 
-      // 1. 부서별 최고점/최하점 제외 유효 합계 계산
+      // 1. 부서별 각 평가 항목(criteria) 및 총점에 대해 평가자의 최고점/최하점 제외 절사평균/합계 계산
       const byDept = {};
       allResults.forEach(r => {
         const d = r.department_name || '부서 미지정';
         byDept[d] = byDept[d] || [];
-        byDept[d].push({ evaluator: r.name, score: Number(r.total) || 0, date: r.date });
+        byDept[d].push(r);
       });
 
       const computedDeptRankings = Object.keys(byDept).map(dept => {
-        const list = [...byDept[dept]].sort((a, b) => a.score - b.score);
+        const list = byDept[dept];
         const count = list.length;
+
+        // 부서별 각 평가 항목(criteria)에 대한 평가자 최고점/최하점 제외 절사평균 계산
+        const criteriaDetails = {};
+        let criteriaTrimmedSum = 0;
+        let criteriaRawSum = 0;
+
+        criteria?.forEach(c => {
+          const itemScores = list.map(r => ({
+            evaluator: r.name,
+            score: Number(r[c.id]) || 0
+          })).sort((a, b) => a.score - b.score);
+
+          const itemCount = itemScores.length;
+          if (itemCount >= 3) {
+            const itemMin = itemScores[0];
+            const itemMax = itemScores[itemCount - 1];
+            const itemTrimmed = itemScores.slice(1, -1);
+            const sum = itemTrimmed.reduce((acc, curr) => acc + curr.score, 0);
+            const avg = Number((sum / itemTrimmed.length).toFixed(1));
+            const rawSum = itemScores.reduce((acc, curr) => acc + curr.score, 0);
+            const rawAvg = Number((rawSum / itemCount).toFixed(1));
+
+            criteriaDetails[c.id] = {
+              id: c.id,
+              label: c.label,
+              maxScore: c.maxScore,
+              trimmedAvg: avg,
+              rawAvg: rawAvg,
+              min: itemMin,
+              max: itemMax,
+              trimmedCount: itemTrimmed.length,
+              isTrimmed: true
+            };
+            criteriaTrimmedSum += avg;
+            criteriaRawSum += rawAvg;
+          } else {
+            const rawSum = itemScores.reduce((acc, curr) => acc + curr.score, 0);
+            const avg = itemCount > 0 ? Number((rawSum / itemCount).toFixed(1)) : 0;
+            criteriaDetails[c.id] = {
+              id: c.id,
+              label: c.label,
+              maxScore: c.maxScore,
+              trimmedAvg: avg,
+              rawAvg: avg,
+              min: itemCount > 0 ? itemScores[0] : null,
+              max: itemCount > 0 ? itemScores[itemCount - 1] : null,
+              trimmedCount: itemCount,
+              isTrimmed: false,
+              isNotEnough: true
+            };
+            criteriaTrimmedSum += avg;
+            criteriaRawSum += avg;
+          }
+        });
+
+        criteriaTrimmedSum = Number(criteriaTrimmedSum.toFixed(1));
+        criteriaRawSum = Number(criteriaRawSum.toFixed(1));
+
+        // 총점 기준 최고/최하 제외 유효 합계/평균
+        const totalSorted = [...list].sort((a, b) => (Number(a.total) || 0) - (Number(b.total) || 0));
+        const rawTotal = list.reduce((s, it) => s + (Number(it.total) || 0), 0);
+        let min = null;
+        let max = null;
+        let trimmedSum = rawTotal;
+        let trimmedAvg = count > 0 ? Number((rawTotal / count).toFixed(1)) : 0;
+        let trimmedCount = count;
+
         if (count >= 3) {
-          const min = list[0];
-          const max = list[list.length - 1];
-          const trimmed = list.slice(1, -1);
-          const sum = trimmed.reduce((s, it) => s + it.score, 0);
-          const avg = Number((sum / trimmed.length).toFixed(1));
-          return {
-            dept,
-            count,
-            min,
-            max,
-            trimmedCount: trimmed.length,
-            trimmedSum: Number.isInteger(sum) ? sum : Number(sum.toFixed(1)),
-            trimmedAvg: avg,
-            rawTotal: list.reduce((s, it) => s + it.score, 0)
-          };
-        } else {
-          const sum = list.reduce((s, it) => s + it.score, 0);
-          return {
-            dept,
-            count,
-            min: count > 0 ? list[0] : null,
-            max: count > 0 ? list[count - 1] : null,
-            trimmedCount: count,
-            trimmedSum: sum,
-            trimmedAvg: count > 0 ? Number((sum / count).toFixed(1)) : 0,
-            rawTotal: sum,
-            isNotEnough: true
-          };
+          min = { evaluator: totalSorted[0].name, score: Number(totalSorted[0].total) || 0 };
+          max = { evaluator: totalSorted[totalSorted.length - 1].name, score: Number(totalSorted[totalSorted.length - 1].total) || 0 };
+          const trimmed = totalSorted.slice(1, -1);
+          const sum = trimmed.reduce((s, it) => s + (Number(it.total) || 0), 0);
+          trimmedSum = Number.isInteger(sum) ? sum : Number(sum.toFixed(1));
+          trimmedAvg = Number((sum / trimmed.length).toFixed(1));
+          trimmedCount = trimmed.length;
+        } else if (count > 0) {
+          min = { evaluator: totalSorted[0].name, score: Number(totalSorted[0].total) || 0 };
+          max = { evaluator: totalSorted[count - 1].name, score: Number(totalSorted[count - 1].total) || 0 };
         }
-      }).sort((a, b) => b.trimmedSum - a.trimmedSum);
+
+        return {
+          dept,
+          count,
+          min,
+          max,
+          trimmedCount,
+          trimmedSum,
+          trimmedAvg,
+          criteriaDetails,
+          criteriaTrimmedSum,
+          criteriaRawSum,
+          rawTotal,
+          isNotEnough: count < 3
+        };
+      }).sort((a, b) => {
+        // 항목별 절사평균 합계 기준 정렬 (동점 시 총점 유효합계)
+        if (b.criteriaTrimmedSum !== a.criteriaTrimmedSum) {
+          return b.criteriaTrimmedSum - a.criteriaTrimmedSum;
+        }
+        return b.trimmedSum - a.trimmedSum;
+      });
 
       // 2. 평가자별 최고점/최하점 제외 유효 합계 계산
       const byEval = {};
@@ -340,12 +410,40 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
       const data = map[key];
       const avgTotal = (data.totalScore / data.count).toFixed(1);
       const avgCriteria = {};
+      const trimmedCriteriaAvg = {};
+      const criteriaMinMax = {};
+      let criteriaTrimmedSum = 0;
+
       criteria?.forEach(c => {
-        avgCriteria[c.id] = (data.criteria[c.id] / data.count).toFixed(1);
+        const rawAvg = (data.criteria[c.id] / data.count).toFixed(1);
+        avgCriteria[c.id] = rawAvg;
+
+        // 부서별일 때 평가자들의 최고점, 최하점 제외 절사평균 산출
+        const itemScores = data.items.map(r => ({
+          evaluator: r.name,
+          score: Number(r[c.id]) || 0
+        })).sort((a, b) => a.score - b.score);
+
+        if (itemScores.length >= 3) {
+          const itemMin = itemScores[0];
+          const itemMax = itemScores[itemScores.length - 1];
+          const itemTrimmed = itemScores.slice(1, -1);
+          const sum = itemTrimmed.reduce((acc, curr) => acc + curr.score, 0);
+          const tAvg = (sum / itemTrimmed.length).toFixed(1);
+          trimmedCriteriaAvg[c.id] = tAvg;
+          criteriaMinMax[c.id] = { min: itemMin, max: itemMax, count: itemScores.length, trimmedCount: itemTrimmed.length, isTrimmed: true };
+          criteriaTrimmedSum += Number(tAvg);
+        } else {
+          trimmedCriteriaAvg[c.id] = rawAvg;
+          criteriaMinMax[c.id] = { min: itemScores[0] || null, max: itemScores[itemScores.length - 1] || null, count: itemScores.length, trimmedCount: itemScores.length, isTrimmed: false };
+          criteriaTrimmedSum += Number(rawAvg || 0);
+        }
       });
+      criteriaTrimmedSum = Number(criteriaTrimmedSum.toFixed(1));
+
       const formattedTotalScore = Number.isInteger(data.totalScore) ? data.totalScore : Number(data.totalScore.toFixed(1));
 
-      // Calculate Trimmed Sum (최고점 및 최하점 제외 합계)
+      // Calculate Trimmed Sum (최고점 및 최하점 제외 합계 - 총점 기준)
       let trimmedSum = null;
       let trimmedAvg = null;
       let minItem = null;
@@ -366,13 +464,22 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         totalScore: formattedTotalScore,
         avgTotal,
         avgCriteria,
+        trimmedCriteriaAvg,
+        criteriaMinMax,
+        criteriaTrimmedSum,
         trimmedSum,
         trimmedAvg,
         minItem,
         maxItem,
         items: data.items
       };
-    }).sort((a,b) => {
+    }).sort((a, b) => {
+      if (groupBy === 'department_name') {
+        if (b.criteriaTrimmedSum !== a.criteriaTrimmedSum) {
+          return b.criteriaTrimmedSum - a.criteriaTrimmedSum;
+        }
+        return b.avgTotal - a.avgTotal;
+      }
       if (groupBy === 'name' && b.trimmedSum !== null && a.trimmedSum !== null) {
         return b.trimmedSum - a.trimmedSum;
       }
@@ -510,9 +617,36 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         sheet1Rows.push([
           `${deptName} [항목별 평균]`,
           '',
-          '소계(평균)',
+          '소계(원평균)',
           ...deptCriteriaAvgRow,
           deptAvgTotal
+        ]);
+
+        // 부서 소계: 평가항목별 평가자 절사평균 (최고점 1건, 최하점 1건 제외)
+        let deptTrimmedSumAcrossCriteria = 0;
+        const deptCriteriaTrimmedAvgRow = criteria.map(c => {
+          const itemScores = items.map(r => Number(r[c.id]) || 0).sort((a, b) => a - b);
+          if (itemScores.length >= 3) {
+            const trimmed = itemScores.slice(1, -1);
+            const sum = trimmed.reduce((a, b) => a + b, 0);
+            const avg = Number((sum / trimmed.length).toFixed(1));
+            deptTrimmedSumAcrossCriteria += avg;
+            return avg;
+          } else {
+            const sum = itemScores.reduce((a, b) => a + b, 0);
+            const avg = itemScores.length > 0 ? Number((sum / itemScores.length).toFixed(1)) : 0;
+            deptTrimmedSumAcrossCriteria += avg;
+            return avg;
+          }
+        });
+        deptTrimmedSumAcrossCriteria = Number(deptTrimmedSumAcrossCriteria.toFixed(1));
+
+        sheet1Rows.push([
+          `${deptName} [항목별 절사평균]`,
+          '최고·최하 제외',
+          '소계(절사평균)',
+          ...deptCriteriaTrimmedAvgRow,
+          deptTrimmedSumAcrossCriteria
         ]);
 
         // 부서 간 구분을 위한 빈 줄
@@ -548,14 +682,17 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
       XLSX.utils.book_append_sheet(wb, ws1, "부서별_상세내역");
 
       // ----------------------------------------------------
-      // 시트 2: [부서별_종합집계] (부서 순위, 부서별 평가항목 총점, 평가항목 평균, 부서 총점)
+      // 시트 2: [부서별_종합집계] (부서 순위, 항목별 절사평균, 항목 절사합계, 원점수 총점/평균)
       // ----------------------------------------------------
+      const criteriaTrimmedHeaders = criteria.map(c => `${c.label} (절사평균)`);
       const criteriaTotalHeaders = criteria.map(c => `${c.label} (총점)`);
-      const criteriaAvgHeaders = criteria.map(c => `${c.label} (평균)`);
+      const criteriaAvgHeaders = criteria.map(c => `${c.label} (원평균)`);
       const sheet2Header = [
         '순위',
         '부서명',
         '심사 건수',
+        ...criteriaTrimmedHeaders,
+        '항목 절사합계',
         ...criteriaTotalHeaders,
         ...criteriaAvgHeaders,
         '부서 종합 총점',
@@ -566,28 +703,53 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         const items = deptGroups[deptName];
         const count = items.length;
         const cTotals = {};
+        const cTrimmedAvgs = {};
+        let criteriaTrimmedSum = 0;
+
         criteria.forEach(c => {
           cTotals[c.id] = items.reduce((s, r) => s + (Number(r[c.id]) || 0), 0);
+
+          const itemScores = items.map(r => Number(r[c.id]) || 0).sort((a, b) => a - b);
+          if (itemScores.length >= 3) {
+            const trimmed = itemScores.slice(1, -1);
+            const sum = trimmed.reduce((a, b) => a + b, 0);
+            const avg = Number((sum / trimmed.length).toFixed(1));
+            cTrimmedAvgs[c.id] = avg;
+            criteriaTrimmedSum += avg;
+          } else {
+            const sum = itemScores.reduce((a, b) => a + b, 0);
+            const avg = itemScores.length > 0 ? Number((sum / itemScores.length).toFixed(1)) : 0;
+            cTrimmedAvgs[c.id] = avg;
+            criteriaTrimmedSum += avg;
+          }
         });
+
+        criteriaTrimmedSum = Number(criteriaTrimmedSum.toFixed(1));
         const total = items.reduce((s, r) => s + (Number(r.total) || 0), 0);
         const avgTotal = Number((total / count).toFixed(1));
+
         return {
           deptName,
           count,
           cTotals,
+          cTrimmedAvgs,
+          criteriaTrimmedSum,
           total,
           avgTotal
         };
-      }).sort((a, b) => b.total - a.total); // 종합 총점 내림차순 정렬
+      }).sort((a, b) => b.criteriaTrimmedSum - a.criteriaTrimmedSum); // 항목 절사평균 합계 내림차순 정렬
 
       const sheet2Rows = [sheet2Header];
       deptSummaryList.forEach((d, idx) => {
+        const cTrimmedVals = criteria.map(c => d.cTrimmedAvgs[c.id]);
         const cTotalVals = criteria.map(c => d.cTotals[c.id]);
         const cAvgVals = criteria.map(c => Number((d.cTotals[c.id] / d.count).toFixed(1)));
         sheet2Rows.push([
           `${idx + 1}위`,
           d.deptName,
           d.count,
+          ...cTrimmedVals,
+          d.criteriaTrimmedSum,
           ...cTotalVals,
           ...cAvgVals,
           d.total,
@@ -595,23 +757,14 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         ]);
       });
 
-      // 종합 합계 행
-      sheet2Rows.push([
-        '총계',
-        '전체 부서',
-        validResults.length,
-        ...grandCriteriaTotalRow,
-        ...grandCriteriaAvgRow,
-        grandTotalScore,
-        grandAvgTotal
-      ]);
-
       const ws2 = XLSX.utils.aoa_to_sheet(sheet2Rows);
       ws2['!cols'] = [
         { wch: 8 }, { wch: 18 }, { wch: 10 },
         ...criteria.map(() => ({ wch: 15 })),
-        ...criteria.map(() => ({ wch: 15 })),
-        { wch: 15 }, { wch: 15 }
+        { wch: 16 },
+        ...criteria.map(() => ({ wch: 14 })),
+        ...criteria.map(() => ({ wch: 14 })),
+        { wch: 14 }, { wch: 14 }
       ];
       XLSX.utils.book_append_sheet(wb, ws2, "부서별_종합집계");
 
@@ -861,19 +1014,44 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
             </div>
 
             <div className="card" style={{ marginBottom: '16px', backgroundColor: 'var(--surface-header)', borderColor: 'var(--primary)' }}>
-              <h3 className="title-md" style={{ marginBottom: '12px', color: 'var(--primary)' }}>
-                {selectedDept === '전체' ? '전체 부서' : (selectedDept || '부서')} 총점 평균
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                {criteria?.map(c => (
-                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="body-md">{c.label}</span><span className="title-md">{averages[c.id] || 0}</span>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <h3 className="title-md" style={{ margin: 0, color: 'var(--primary)' }}>
+                  {selectedDept === '전체' ? '전체 부서' : (selectedDept || '부서')} 점수 평균
+                </h3>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-sub)' }}>
+                  ※ (절사): 최고 1건, 최하 1건 제외한 평가자 절사평균
+                </span>
               </div>
-              <div style={{ borderTop: '1px solid var(--primary)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="title-md">종합</span>
-                <span className="headline-md" style={{ color: 'var(--primary)' }}>{averages.total}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                {criteria?.map(c => {
+                  const valid = results.filter(r => !r.isDeleted);
+                  const scores = valid.map(r => Number(r[c.id]) || 0).sort((a, b) => a - b);
+                  let tAvg = null;
+                  if (scores.length >= 3) {
+                    const trimmed = scores.slice(1, -1);
+                    tAvg = (trimmed.reduce((a, b) => a + b, 0) / trimmed.length).toFixed(1);
+                  }
+                  return (
+                    <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '2px', backgroundColor: 'white', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(26,100,119,0.12)' }}>
+                      <span className="body-md" style={{ color: 'var(--text-sub)', fontSize: '12px' }}>{c.label}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span className="title-md" style={{ fontSize: '15px', color: 'var(--primary)' }}>
+                          {tAvg !== null ? `${tAvg}점` : `${averages[c.id] || 0}점`}
+                          {tAvg !== null && <span style={{ fontSize: '11px', fontWeight: 'normal', color: 'var(--text-sub)', marginLeft: '3px' }}>(절사)</span>}
+                        </span>
+                        {tAvg !== null && (
+                          <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>
+                            원 {averages[c.id] || 0}점
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ borderTop: '1px solid var(--primary)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="title-md">종합 원점수 평균</span>
+                <span className="headline-md" style={{ color: 'var(--primary)' }}>{averages.total}점</span>
               </div>
             </div>
 
@@ -958,18 +1136,25 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                   </div>
                 )}
                 {getAggregatedResults(summaryMode === 'BY_DEPT' ? 'department_name' : 'name').map((agg, idx) => (
-                  <div key={idx} className="card" style={{ padding: '14px', border: summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)' }}>
+                  <div key={idx} className="card" style={{ padding: '14px', border: (summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null) || (summaryMode === 'BY_DEPT' && agg.criteriaTrimmedSum) ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span className="title-md">{agg.key}</span>
-                        {summaryMode === 'BY_EVALUATOR' && (
-                          <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
-                            ({agg.count}개 부서 평가)
-                          </span>
-                        )}
+                        <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
+                          ({summaryMode === 'BY_EVALUATOR' ? `${agg.count}개 부서 평가` : `심사위원 ${agg.count}명`})
+                        </span>
                       </div>
                       
-                      {summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null ? (
+                      {summaryMode === 'BY_DEPT' ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span className="label-md" style={{ backgroundColor: 'var(--primary)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontWeight: 'bold' }}>
+                            항목 절사평균 합계: {agg.criteriaTrimmedSum}점
+                          </span>
+                          <span className="label-sm" style={{ backgroundColor: 'var(--surface-container)', color: 'var(--text-sub)', padding: '4px 8px', borderRadius: '12px' }}>
+                            원점수 평균 {agg.avgTotal}점 (총 {agg.totalScore}점)
+                          </span>
+                        </div>
+                      ) : summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           <span className="label-md" style={{ backgroundColor: 'var(--primary)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontWeight: 'bold' }}>
                             최고·최하 제외 합계: {agg.trimmedSum}점
@@ -988,8 +1173,45 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                       )}
                     </div>
 
+                    {summaryMode === 'BY_DEPT' && (
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', 
+                        gap: '8px', 
+                        backgroundColor: 'var(--surface-header, #f0f7f9)', 
+                        padding: '10px 12px', 
+                        borderRadius: '8px', 
+                        marginTop: '6px',
+                        border: '1px solid rgba(26, 100, 119, 0.15)' 
+                      }}>
+                        {criteria?.map(c => {
+                          const minMax = agg.criteriaMinMax?.[c.id];
+                          const tAvg = agg.trimmedCriteriaAvg?.[c.id] || '0.0';
+                          const rawAvg = agg.avgCriteria?.[c.id] || '0.0';
+                          return (
+                            <div key={c.id} style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                <span style={{ color: 'var(--text-sub)' }}>{c.label}:</span>
+                                <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '13px' }}>{tAvg}점</span>
+                              </div>
+                              {minMax && minMax.isTrimmed ? (
+                                <div style={{ fontSize: '10.5px', color: 'var(--text-sub)', display: 'flex', justifyContent: 'space-between', borderTop: '1px dotted rgba(26,100,119,0.2)', paddingTop: '2px' }}>
+                                  <span>🔻{minMax.min?.score}점({minMax.min?.evaluator})</span>
+                                  <span>🔺{minMax.max?.score}점({minMax.max?.evaluator})</span>
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '10px', color: 'var(--text-sub)', borderTop: '1px dotted rgba(26,100,119,0.2)', paddingTop: '2px' }}>
+                                  <span>원평균 {rawAvg}점 (3건 미만)</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null && (
-                      <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: 'var(--text-sub)', marginBottom: '10px', backgroundColor: 'var(--surface-header, #f0f7f9)', padding: '8px 12px', borderRadius: '6px', flexWrap: 'wrap', border: '1px solid rgba(26, 100, 119, 0.15)' }}>
+                      <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: 'var(--text-sub)', marginBottom: '8px', backgroundColor: 'var(--surface-header, #f0f7f9)', padding: '8px 12px', borderRadius: '6px', flexWrap: 'wrap', border: '1px solid rgba(26, 100, 119, 0.15)' }}>
                         <span>🔺 <strong style={{ color: '#cf1322' }}>최고 제외:</strong> {agg.maxItem?.department_name} ({agg.maxItem?.total}점)</span>
                         <span style={{ opacity: 0.4 }}>|</span>
                         <span>🔻 <strong style={{ color: '#096dd9' }}>최하 제외:</strong> {agg.minItem?.department_name} ({agg.minItem?.total}점)</span>
@@ -998,11 +1220,13 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '12px', color: 'var(--text-sub)', fontSize: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
-                      {criteria?.map(c => (
-                        <span key={c.id} style={{ whiteSpace: 'nowrap' }}>{c.label}: {agg.avgCriteria[c.id] || 0}</span>
-                      ))}
-                    </div>
+                    {summaryMode === 'BY_EVALUATOR' && (
+                      <div style={{ display: 'flex', gap: '12px', color: 'var(--text-sub)', fontSize: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
+                        {criteria?.map(c => (
+                          <span key={c.id} style={{ whiteSpace: 'nowrap' }}>{c.label}: {agg.avgCriteria[c.id] || 0}점</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1405,17 +1629,17 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                 <div>
                   <div style={{ textAlign: 'center', marginBottom: '18px' }}>
                     <h4 className="title-md" style={{ color: 'var(--primary)', marginBottom: '4px' }}>
-                      🏆 부서별 최종 순위 (최고/최하점 제외 유효 합계)
+                      🏆 부서별 최종 순위 (평가자 항목별 절사평균법 적용)
                     </h4>
                     <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
-                      각 부서가 심사위원들로부터 받은 점수 중 최고점(1건)과 최하점(1건)을 제외하고 합산한 최종 결과입니다.
+                      각 부서의 평가 항목별로 평가자들의 최고점(1건)과 최하점(1건)을 제외한 절사평균(Trimmed Mean) 및 그 합계 기준으로 산출된 최종 결과입니다.
                     </span>
                   </div>
 
                   {/* 1, 2, 3등 시상대 (Podium Cards) */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                     gap: '12px',
                     marginBottom: '24px',
                     alignItems: 'end'
@@ -1438,12 +1662,38 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                           {deptRankings[1].dept}
                         </h5>
                         <div style={{ fontSize: '28px', fontWeight: '900', color: '#475569', margin: '6px 0' }}>
-                          {deptRankings[1].trimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
+                          {deptRankings[1].criteriaTrimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>
-                          유효평균: <strong>{deptRankings[1].trimmedAvg}점</strong> ({deptRankings[1].trimmedCount}명 반영)
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-sub)', marginBottom: '8px' }}>
+                          항목 절사평균 총점 (심사 {deptRankings[1].count}명)
                         </div>
+
+                        {/* 항목별 절사평균 상세 박스 */}
+                        <div style={{ backgroundColor: 'white', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'left', fontSize: '11.5px', marginTop: '6px' }}>
+                          <div style={{ fontWeight: 'bold', color: '#475569', marginBottom: '4px', fontSize: '11px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>📊 항목별 절사평균</span>
+                            <span>(최고·최하 제외)</span>
+                          </div>
+                          {criteria?.map(c => {
+                            const detail = deptRankings[1].criteriaDetails?.[c.id];
+                            return (
+                              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', color: '#475569', lineHeight: '1.5' }}>
+                                <span>{c.label}:</span>
+                                <span style={{ fontWeight: 'bold' }}>
+                                  {detail?.trimmedAvg ?? '-'}점
+                                  {detail?.isTrimmed && (
+                                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'normal', marginLeft: '3px' }}>
+                                      (🔻{detail.min?.score}/🔺{detail.max?.score})
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
                         <div style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
+                          <div>총점 유효합계: <strong>{deptRankings[1].trimmedSum}점</strong> (유효평균 {deptRankings[1].trimmedAvg}점)</div>
                           <div>🔺 최고 제외: {deptRankings[1].max?.score}점 ({deptRankings[1].max?.evaluator})</div>
                           <div>🔻 최하 제외: {deptRankings[1].min?.score}점 ({deptRankings[1].min?.evaluator})</div>
                         </div>
@@ -1456,7 +1706,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                         background: 'linear-gradient(180deg, #fffdf0 0%, #fff9d6 100%)',
                         border: '2.5px solid #eab308',
                         borderRadius: '14px',
-                        padding: '22px 16px',
+                        padding: '20px 16px',
                         textAlign: 'center',
                         boxShadow: '0 8px 24px rgba(234, 179, 8, 0.25)',
                         transform: 'translateY(-6px)',
@@ -1468,13 +1718,39 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                         <h5 style={{ fontSize: '23px', fontWeight: '900', margin: '6px 0', color: '#854d0e' }}>
                           {deptRankings[0].dept}
                         </h5>
-                        <div style={{ fontSize: '36px', fontWeight: '900', color: '#a16207', margin: '8px 0' }}>
-                          {deptRankings[0].trimmedSum}<span style={{ fontSize: '16px', fontWeight: 'bold', color: '#ca8a04' }}>점</span>
+                        <div style={{ fontSize: '36px', fontWeight: '900', color: '#a16207', margin: '6px 0' }}>
+                          {deptRankings[0].criteriaTrimmedSum}<span style={{ fontSize: '16px', fontWeight: 'bold', color: '#ca8a04' }}>점</span>
                         </div>
-                        <div style={{ fontSize: '13px', color: '#854d0e', fontWeight: 'bold' }}>
-                          유효평균: {deptRankings[0].trimmedAvg}점 ({deptRankings[0].trimmedCount}명 반영)
+                        <div style={{ fontSize: '12px', color: '#854d0e', fontWeight: 'bold', marginBottom: '8px' }}>
+                          항목 절사평균 총점 (심사 {deptRankings[0].count}명)
                         </div>
+
+                        {/* 항목별 절사평균 상세 박스 */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.85)', padding: '10px', borderRadius: '8px', border: '1px solid #fef08a', textAlign: 'left', fontSize: '12px', marginTop: '6px' }}>
+                          <div style={{ fontWeight: 'bold', color: '#854d0e', marginBottom: '4px', fontSize: '11px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>📊 항목별 절사평균</span>
+                            <span>(최고·최하 제외)</span>
+                          </div>
+                          {criteria?.map(c => {
+                            const detail = deptRankings[0].criteriaDetails?.[c.id];
+                            return (
+                              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', color: '#713f12', lineHeight: '1.6' }}>
+                                <span>{c.label}:</span>
+                                <span style={{ fontWeight: 'bold' }}>
+                                  {detail?.trimmedAvg ?? '-'}점
+                                  {detail?.isTrimmed && (
+                                    <span style={{ fontSize: '10px', color: '#a16207', fontWeight: 'normal', marginLeft: '3px' }}>
+                                      (🔻{detail.min?.score}/🔺{detail.max?.score})
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
                         <div style={{ fontSize: '11px', color: '#713f12', marginTop: '10px', borderTop: '1px solid #fef08a', paddingTop: '8px' }}>
+                          <div>총점 유효합계: <strong>{deptRankings[0].trimmedSum}점</strong> (유효평균 {deptRankings[0].trimmedAvg}점)</div>
                           <div>🔺 최고 제외: {deptRankings[0].max?.score}점 ({deptRankings[0].max?.evaluator})</div>
                           <div>🔻 최하 제외: {deptRankings[0].min?.score}점 ({deptRankings[0].min?.evaluator})</div>
                         </div>
@@ -1499,12 +1775,38 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                           {deptRankings[2].dept}
                         </h5>
                         <div style={{ fontSize: '28px', fontWeight: '900', color: '#9a3412', margin: '6px 0' }}>
-                          {deptRankings[2].trimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
+                          {deptRankings[2].criteriaTrimmedSum}<span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-sub)' }}>점</span>
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>
-                          유효평균: <strong>{deptRankings[2].trimmedAvg}점</strong> ({deptRankings[2].trimmedCount}명 반영)
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-sub)', marginBottom: '8px' }}>
+                          항목 절사평균 총점 (심사 {deptRankings[2].count}명)
                         </div>
+
+                        {/* 항목별 절사평균 상세 박스 */}
+                        <div style={{ backgroundColor: 'white', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fed7aa', textAlign: 'left', fontSize: '11.5px', marginTop: '6px' }}>
+                          <div style={{ fontWeight: 'bold', color: '#9a3412', marginBottom: '4px', fontSize: '11px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>📊 항목별 절사평균</span>
+                            <span>(최고·최하 제외)</span>
+                          </div>
+                          {criteria?.map(c => {
+                            const detail = deptRankings[2].criteriaDetails?.[c.id];
+                            return (
+                              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', color: '#7c2d12', lineHeight: '1.5' }}>
+                                <span>{c.label}:</span>
+                                <span style={{ fontWeight: 'bold' }}>
+                                  {detail?.trimmedAvg ?? '-'}점
+                                  {detail?.isTrimmed && (
+                                    <span style={{ fontSize: '10px', color: '#ea580c', fontWeight: 'normal', marginLeft: '3px' }}>
+                                      (🔻{detail.min?.score}/🔺{detail.max?.score})
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
                         <div style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '8px', borderTop: '1px solid #fed7aa', paddingTop: '6px' }}>
+                          <div>총점 유효합계: <strong>{deptRankings[2].trimmedSum}점</strong> (유효평균 {deptRankings[2].trimmedAvg}점)</div>
                           <div>🔺 최고 제외: {deptRankings[2].max?.score}점 ({deptRankings[2].max?.evaluator})</div>
                           <div>🔻 최하 제외: {deptRankings[2].min?.score}점 ({deptRankings[2].min?.evaluator})</div>
                         </div>
@@ -1513,42 +1815,60 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                   </div>
 
                   {/* 전체 부서 순위 목록 테이블 */}
-                  <h5 className="title-sm" style={{ marginBottom: '8px', color: 'var(--text-sub)' }}>
-                    전체 부서 순위 결과 ({deptRankings.length}개 부서)
-                  </h5>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                    <h5 className="title-sm" style={{ margin: 0, color: 'var(--text-sub)' }}>
+                      전체 부서 순위 결과 ({deptRankings.length}개 부서)
+                    </h5>
+                    <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>
+                      ※ 각 평가항목별 평가자 최고 1건, 최하 1건 제외 절사평균
+                    </span>
+                  </div>
                   <div style={{ overflowX: 'auto', border: '1px solid var(--surface-border)', borderRadius: '8px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                       <thead style={{ backgroundColor: 'var(--surface-header)', borderBottom: '1px solid var(--surface-border)' }}>
                         <tr>
-                          <th style={{ padding: '10px' }}>순위</th>
-                          <th style={{ padding: '10px' }}>부서명</th>
-                          <th style={{ padding: '10px' }}>심사수</th>
-                          <th style={{ padding: '10px' }}>최고 제외</th>
-                          <th style={{ padding: '10px' }}>최하 제외</th>
-                          <th style={{ padding: '10px', textAlign: 'right' }}>유효 합계</th>
-                          <th style={{ padding: '10px', textAlign: 'right' }}>유효 평균</th>
-                          <th style={{ padding: '10px', textAlign: 'right' }}>원점수 총합</th>
+                          <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>순위</th>
+                          <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>부서명</th>
+                          <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>심사수</th>
+                          {criteria?.map(c => (
+                            <th key={c.id} style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              {c.label}<br/>
+                              <span style={{ fontSize: '10px', fontWeight: 'normal', color: 'var(--primary)' }}>(절사평균)</span>
+                            </th>
+                          ))}
+                          <th style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', backgroundColor: 'rgba(26, 100, 119, 0.08)', color: 'var(--primary)' }}>
+                            항목 절사합계
+                          </th>
+                          <th style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>총점 유효합계</th>
+                          <th style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>총점 유효평균</th>
+                          <th style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>원점수 총합</th>
                         </tr>
                       </thead>
                       <tbody>
                         {deptRankings.map((d, idx) => (
                           <tr key={d.dept} style={{ borderBottom: '1px solid var(--surface-border)', backgroundColor: idx < 3 ? 'rgba(255, 249, 196, 0.25)' : 'white' }}>
-                            <td style={{ padding: '10px', fontWeight: 'bold' }}>
+                            <td style={{ padding: '10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                               {idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}
                             </td>
-                            <td style={{ padding: '10px', fontWeight: 'bold', color: 'var(--primary)' }}>{d.dept}</td>
-                            <td style={{ padding: '10px' }}>{d.count}명</td>
-                            <td style={{ padding: '10px', fontSize: '12px', color: '#cf1322' }}>
-                              {d.max ? `${d.max.score}점 (${d.max.evaluator})` : '-'}
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: 'var(--primary)', whiteSpace: 'nowrap' }}>{d.dept}</td>
+                            <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{d.count}명</td>
+                            {criteria?.map(c => {
+                              const detail = d.criteriaDetails?.[c.id];
+                              const tooltip = detail?.isTrimmed 
+                                ? `${c.label} [최고 제외: ${detail.max?.evaluator}(${detail.max?.score}점) / 최하 제외: ${detail.min?.evaluator}(${detail.min?.score}점)]`
+                                : `${c.label} (3건 미만으로 전체 평균 반영)`;
+                              return (
+                                <td key={c.id} style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }} title={tooltip}>
+                                  <span style={{ fontWeight: '600' }}>{detail?.trimmedAvg ?? '-'}점</span>
+                                </td>
+                              );
+                            })}
+                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: '900', color: 'var(--primary)', fontSize: '14px', backgroundColor: 'rgba(26, 100, 119, 0.05)', whiteSpace: 'nowrap' }}>
+                              {d.criteriaTrimmedSum}점
                             </td>
-                            <td style={{ padding: '10px', fontSize: '12px', color: '#096dd9' }}>
-                              {d.min ? `${d.min.score}점 (${d.min.evaluator})` : '-'}
-                            </td>
-                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: '900', color: 'var(--primary)', fontSize: '14px' }}>
-                              {d.trimmedSum}점
-                            </td>
-                            <td style={{ padding: '10px', textAlign: 'right' }}>{d.trimmedAvg}점</td>
-                            <td style={{ padding: '10px', textAlign: 'right', color: 'var(--text-sub)' }}>{d.rawTotal}점</td>
+                            <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{d.trimmedSum}점</td>
+                            <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{d.trimmedAvg}점</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'var(--text-sub)', whiteSpace: 'nowrap' }}>{d.rawTotal}점</td>
                           </tr>
                         ))}
                       </tbody>
