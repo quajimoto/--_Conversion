@@ -1,20 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, CheckCircle, LogOut, ArrowRight, ChevronDown, ChevronUp, FolderOpen, Trash2, X, Edit2 } from 'lucide-react';
+import { Save, CheckCircle, LogOut, ArrowRight, ChevronDown, FolderOpen, Trash2, X, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../apiConfig';
 
 const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const navigate = useNavigate();
-
-  // Accordion expand/collapse state for completed evaluations (default: collapsed)
-  const [expandedDepts, setExpandedDepts] = useState({});
-
-  const toggleDeptExpand = (dept) => {
-    setExpandedDepts(prev => ({
-      ...prev,
-      [dept]: !prev[dept]
-    }));
-  };
   
   // Temporary Drafts Management
   const getTempStorageKey = () => `temp_evaluations_${user?.name || 'anonymous'}`;
@@ -433,7 +423,6 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   const handleStartEditCompleted = (idx, evalData) => {
     setEditingCompletedIndex(idx);
     setEditingScores({ ...evalData.scores });
-    setExpandedDepts(prev => ({ ...prev, [evalData.department]: true }));
   };
 
   const handleCancelEditCompleted = () => {
@@ -826,7 +815,6 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
             </div>
             {completedEvaluations.map((evalData, idx) => {
               const isEditing = editingCompletedIndex === idx;
-              const isExpanded = isEditing || Boolean(expandedDepts[evalData.department]);
               const currentCardTotal = isEditing 
                 ? Object.values(editingScores).reduce((acc, curr) => acc + (Number(curr) || 0), 0)
                 : evalData.totalScore;
@@ -843,18 +831,9 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  {/* Completed Header */}
-                  <div 
-                    style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
-                      flexWrap: 'wrap', 
-                      gap: '12px',
-                      marginBottom: isExpanded ? '16px' : '0'
-                    }}
-                  >
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Completed Date and Department */}
+                  <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <span className="title-md" style={{ color: isEditing ? 'var(--primary)' : 'var(--text-main)', fontSize: '16px', fontWeight: 'bold' }}>
                         {evalData.department}
                       </span>
@@ -867,178 +846,125 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                           완료됨
                         </span>
                       )}
-                      <span className="label-md" style={{ backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '2px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
-                        총 {currentCardTotal}점
+                    </div>
+                    <span className="label-md" style={{ color: 'var(--text-sub)' }}>
+                      평가 일자: {evalData.date}
+                    </span>
+                  </div>
+
+                  {/* Completed Score Cards with Slider */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                    {criteria?.map((c) => {
+                      const maxScore = c.maxScore || 10;
+                      const rawScore = isEditing 
+                        ? (editingScores[c.id] ?? '') 
+                        : (evalData.scores[c.id] ?? '');
+                      const scoreVal = rawScore === '' ? 0 : Number(rawScore);
+
+                      return (
+                        <div 
+                          key={c.id} 
+                          className="card" 
+                          style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            gap: '12px', 
+                            padding: '16px',
+                            backgroundColor: isEditing ? 'white' : 'var(--status-locked)',
+                            border: isEditing ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                            <div style={{ flex: 1 }}>
+                              <div className="title-md" style={{ color: 'var(--text-main)', marginBottom: '2px', whiteSpace: 'pre-wrap' }}>{c.label}</div>
+                              <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description || `최대 ${maxScore}점`}</div>
+                            </div>
+                            <div style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'baseline', 
+                              gap: '2px', 
+                              backgroundColor: isEditing ? 'var(--primary)' : 'var(--surface-container)', 
+                              color: isEditing ? 'white' : 'var(--text-sub)', 
+                              padding: '4px 12px', 
+                              borderRadius: '20px',
+                              flexShrink: 0
+                            }}>
+                              <span style={{ fontSize: '20px', fontWeight: '800', lineHeight: 1 }}>{scoreVal}</span>
+                              <span style={{ fontSize: '12px', opacity: 0.85 }}>/ {maxScore}점</span>
+                            </div>
+                          </div>
+                          
+                          {isEditing ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <input 
+                                ref={el => { if (isEditing) editInputRefs.current[c.id] = el; }}
+                                type="range" 
+                                min="0"
+                                max={maxScore}
+                                step="1"
+                                className="score-slider"
+                                value={scoreVal} 
+                                onChange={(e) => handleEditScoreChange(c.id, e.target.value)}
+                                onInput={(e) => handleEditScoreChange(c.id, e.target.value)}
+                              />
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-sub)', padding: '0 2px' }}>
+                                <span>0점</span>
+                                <span>중간 ({Math.round(maxScore / 2)}점)</span>
+                                <span>최대 ({maxScore}점)</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--surface-border)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(100, Math.max(0, (scoreVal / maxScore) * 100))}%`, height: '100%', backgroundColor: 'var(--primary)' }} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Completed Total Score & Actions */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--surface-border)', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="headline-md">총점</span>
+                      <span className="headline-lg" style={{ color: isEditing ? 'var(--primary)' : 'var(--text-main)' }}>
+                        {currentCardTotal} 점
                       </span>
                     </div>
-
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="label-md" style={{ color: 'var(--text-sub)', fontSize: '12px' }}>
-                        평가 일자: {evalData.date}
-                      </span>
-                      {!isEditing && (
+                      {isEditing ? (
                         <>
                           <button 
                             type="button"
                             className="btn btn-secondary" 
-                            style={{ padding: '4px 10px', fontSize: '12px', height: '32px', minHeight: '32px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px', boxSizing: 'border-box' }}
-                            onClick={() => handleStartEditCompleted(idx, evalData)}
+                            style={{ padding: '8px 14px', fontSize: '13px' }}
+                            onClick={handleCancelEditCompleted}
                           >
-                            <Edit2 size={13} />
-                            점수 수정
+                            취소
                           </button>
-                          <button
+                          <button 
                             type="button"
-                            onClick={() => toggleDeptExpand(evalData.department)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '4px',
-                              backgroundColor: isExpanded ? 'var(--surface-container-low, #f2f4f5)' : 'white',
-                              border: '1px solid var(--primary)',
-                              borderRadius: '4px',
-                              width: '95px',
-                              minWidth: '95px',
-                              height: '32px',
-                              minHeight: '32px',
-                              fontSize: '12px',
-                              color: 'var(--primary)',
-                              cursor: 'pointer',
-                              fontWeight: '600',
-                              boxSizing: 'border-box',
-                              transition: 'background-color 0.15s ease'
-                            }}
+                            className="btn btn-primary" 
+                            style={{ padding: '8px 16px', fontSize: '13px' }}
+                            onClick={() => handleSaveEditCompleted(idx, evalData)}
                           >
-                            {isExpanded ? (
-                              <>접기 <ChevronUp size={15} /></>
-                            ) : (
-                              <>항목 보기 <ChevronDown size={15} /></>
-                            )}
+                            수정 완료
                           </button>
                         </>
+                      ) : (
+                        <button 
+                          type="button"
+                          className="btn btn-secondary" 
+                          style={{ padding: '8px 14px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => handleStartEditCompleted(idx, evalData)}
+                        >
+                          <Edit2 size={14} />
+                          점수 수정
+                        </button>
                       )}
                     </div>
                   </div>
-
-                  {/* Collapsible Content */}
-                  {isExpanded && (
-                    <>
-                      {/* Completed Score Cards with Slider */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                        {criteria?.map((c) => {
-                          const maxScore = c.maxScore || 10;
-                          const rawScore = isEditing 
-                            ? (editingScores[c.id] ?? '') 
-                            : (evalData.scores[c.id] ?? '');
-                          const scoreVal = rawScore === '' ? 0 : Number(rawScore);
-
-                          return (
-                            <div 
-                              key={c.id} 
-                              className="card" 
-                              style={{ 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                gap: '12px', 
-                                padding: '16px',
-                                backgroundColor: isEditing ? 'white' : 'var(--status-locked)',
-                                border: isEditing ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)',
-                                transition: 'all 0.2s ease'
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                                <div style={{ flex: 1 }}>
-                                  <div className="title-md" style={{ color: 'var(--text-main)', marginBottom: '2px', whiteSpace: 'pre-wrap' }}>{c.label}</div>
-                                  <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description || `최대 ${maxScore}점`}</div>
-                                </div>
-                                <div style={{ 
-                                  display: 'inline-flex', 
-                                  alignItems: 'baseline', 
-                                  gap: '2px', 
-                                  backgroundColor: isEditing ? 'var(--primary)' : 'var(--surface-container)', 
-                                  color: isEditing ? 'white' : 'var(--text-sub)', 
-                                  padding: '4px 12px', 
-                                  borderRadius: '20px',
-                                  flexShrink: 0
-                                }}>
-                                  <span style={{ fontSize: '20px', fontWeight: '800', lineHeight: 1 }}>{scoreVal}</span>
-                                  <span style={{ fontSize: '12px', opacity: 0.85 }}>/ {maxScore}점</span>
-                                </div>
-                              </div>
-                              
-                              {isEditing ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <input 
-                                    ref={el => { if (isEditing) editInputRefs.current[c.id] = el; }}
-                                    type="range" 
-                                    min="0"
-                                    max={maxScore}
-                                    step="1"
-                                    className="score-slider"
-                                    value={scoreVal} 
-                                    onChange={(e) => handleEditScoreChange(c.id, e.target.value)}
-                                    onInput={(e) => handleEditScoreChange(c.id, e.target.value)}
-                                  />
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-sub)', padding: '0 2px' }}>
-                                    <span>0점</span>
-                                    <span>중간 ({Math.round(maxScore / 2)}점)</span>
-                                    <span>최대 ({maxScore}점)</span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--surface-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                                  <div style={{ width: `${Math.min(100, Math.max(0, (scoreVal / maxScore) * 100))}%`, height: '100%', backgroundColor: 'var(--primary)' }} />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      
-                      {/* Completed Total Score & Actions */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--surface-border)', flexWrap: 'wrap', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className="headline-md">총점</span>
-                          <span className="headline-lg" style={{ color: isEditing ? 'var(--primary)' : 'var(--text-main)' }}>
-                            {currentCardTotal} 점
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {isEditing ? (
-                            <>
-                              <button 
-                                type="button"
-                                className="btn btn-secondary" 
-                                style={{ padding: '8px 14px', fontSize: '13px' }}
-                                onClick={handleCancelEditCompleted}
-                              >
-                                취소
-                              </button>
-                              <button 
-                                type="button"
-                                className="btn btn-primary" 
-                                style={{ padding: '8px 16px', fontSize: '13px' }}
-                                onClick={() => handleSaveEditCompleted(idx, evalData)}
-                              >
-                                수정 완료
-                              </button>
-                            </>
-                          ) : (
-                            <button 
-                              type="button"
-                              className="btn btn-secondary" 
-                              style={{ padding: '8px 14px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
-                              onClick={() => handleStartEditCompleted(idx, evalData)}
-                            >
-                              <Edit2 size={14} />
-                              점수 수정
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
               );
             })}
