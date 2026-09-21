@@ -845,46 +845,64 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  {/* Completed Header - Non-clickable header container */}
+                  {/* Completed Header - Non-clickable 2-line header container */}
                   <div 
                     style={{ 
                       display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
-                      flexWrap: 'wrap', 
-                      gap: '12px',
+                      flexDirection: 'column', 
+                      gap: '10px',
                       marginBottom: isExpanded ? '16px' : '0'
                     }}
                   >
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span className="title-md" style={{ color: isEditing ? 'var(--primary)' : 'var(--text-main)', fontSize: '16px', fontWeight: 'bold' }}>
-                        {evalData.department}
-                      </span>
-                      {isEditing ? (
-                        <span style={{ fontSize: '11px', backgroundColor: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          현재 위치에서 수정 중
+                    {/* Line 1: Department info & Evaluation date */}
+                    <div 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        flexWrap: 'wrap', 
+                        gap: '8px' 
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span className="title-md" style={{ color: isEditing ? 'var(--primary)' : 'var(--text-main)', fontSize: '16px', fontWeight: 'bold' }}>
+                          {evalData.department}
                         </span>
-                      ) : (
-                        <span style={{ fontSize: '11px', backgroundColor: 'var(--surface-container, #eef2f6)', color: 'var(--text-sub)', padding: '2px 8px', borderRadius: '4px' }}>
-                          완료됨
-                        </span>
-                      )}
-                      <span className="label-md" style={{ backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '2px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
-                        총 {currentCardTotal}점
+                        {isEditing ? (
+                          <span style={{ fontSize: '11px', backgroundColor: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                            현재 위치에서 수정 중
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '11px', backgroundColor: 'var(--surface-container, #eef2f6)', color: 'var(--text-sub)', padding: '2px 8px', borderRadius: '4px' }}>
+                            완료됨
+                          </span>
+                        )}
+                      </div>
+                      <span className="label-md" style={{ color: 'var(--text-sub)', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                        평가 일자: {evalData.date}
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="label-md" style={{ color: 'var(--text-sub)', fontSize: '12px' }}>
-                        평가 일자: {evalData.date}
+                    {/* Line 2: Total Score & Action Buttons (점수 수정, 항목보기/접기) */}
+                    <div 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        gap: '8px' 
+                      }}
+                    >
+                      <span className="label-md" style={{ backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                        총 {currentCardTotal}점
                       </span>
+
                       {!isEditing && (
-                        <>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <button 
                             type="button"
                             className="btn btn-secondary" 
                             style={{ 
-                              padding: '4px 10px', 
+                              padding: '0 10px', 
                               fontSize: '12px', 
                               height: '32px', 
                               minHeight: '32px', 
@@ -894,7 +912,9 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                               display: 'inline-flex', 
                               alignItems: 'center', 
                               gap: '4px', 
-                              boxSizing: 'border-box' 
+                              boxSizing: 'border-box',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0
                             }}
                             onClick={() => handleStartEditCompleted(idx, evalData)}
                           >
@@ -921,6 +941,8 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                               cursor: 'pointer',
                               fontWeight: '600',
                               boxSizing: 'border-box',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
                               transition: 'background-color 0.15s ease'
                             }}
                           >
@@ -930,7 +952,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                               <>항목보기 <ChevronDown size={14} /></>
                             )}
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>
