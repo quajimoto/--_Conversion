@@ -167,7 +167,8 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
       criteria?.forEach(c => {
         avgCriteria[c.id] = (data.criteria[c.id] / data.count).toFixed(1);
       });
-      return { key, count: data.count, avgTotal, avgCriteria };
+      const formattedTotalScore = Number.isInteger(data.totalScore) ? data.totalScore : Number(data.totalScore.toFixed(1));
+      return { key, count: data.count, totalScore: formattedTotalScore, avgTotal, avgCriteria };
     }).sort((a,b) => b.avgTotal - a.avgTotal);
   };
 
@@ -487,7 +488,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
             {(summaryMode === 'BY_DEPT' || summaryMode === 'BY_EVALUATOR') && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <h3 className="title-md" style={{ marginBottom: '8px' }}>
-                  {summaryMode === 'BY_DEPT' ? '부서별 평균 점수' : '평가자별 평균 점수'}
+                  {summaryMode === 'BY_DEPT' ? '부서별 집계' : '평가자별 집계'}
                 </h3>
                 {results.length === 0 && (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-sub)' }} className="body-md">
@@ -496,10 +497,13 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                 )}
                 {getAggregatedResults(summaryMode === 'BY_DEPT' ? 'department_name' : 'name').map((agg, idx) => (
                   <div key={idx} className="card" style={{ padding: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
                       <span className="title-md">{agg.key}</span>
-                      <span className="label-md" style={{ backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '2px 8px', borderRadius: '12px' }}>
-                        평균 {agg.avgTotal}점 ({agg.count}건)
+                      <span className="label-md" style={{ backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '3px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span>총점 <strong>{agg.totalScore}</strong>점</span>
+                        <span style={{ opacity: 0.5 }}>|</span>
+                        <span>평균 <strong>{agg.avgTotal}</strong>점</span>
+                        <span style={{ fontSize: '11px', opacity: 0.8 }}>({agg.count}건)</span>
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '12px', color: 'var(--text-sub)', fontSize: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
