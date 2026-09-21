@@ -700,27 +700,77 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
               </div>
             </div>
 
-            {/* Score Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '24px' }}>
-              {criteria?.map((c) => (
-                <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: status === 'SUBMITTED' ? 'var(--status-locked)' : 'var(--surface-container-lowest)' }}>
-                  <div>
-                    <div className="title-md" style={{ whiteSpace: 'pre-wrap' }}>{c.label}</div>
-                    <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description}</div>
+            {/* Score Cards with Interactive Slider */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+              {criteria?.map((c) => {
+                const maxScore = c.maxScore || 10;
+                const currentScore = scores[c.id] === '' || scores[c.id] === undefined ? 0 : Number(scores[c.id]);
+                const isTouched = scores[c.id] !== '' && scores[c.id] !== undefined;
+
+                return (
+                  <div 
+                    key={c.id} 
+                    className="card" 
+                    style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: '12px', 
+                      padding: '16px',
+                      backgroundColor: status === 'SUBMITTED' ? 'var(--status-locked)' : 'var(--surface-container-lowest)',
+                      border: isTouched ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)',
+                      boxShadow: isTouched ? '0 2px 8px rgba(26, 100, 119, 0.08)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {/* Header: Label, Description & Dynamic Score Badge */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div className="title-md" style={{ color: 'var(--text-main)', marginBottom: '2px', whiteSpace: 'pre-wrap' }}>{c.label}</div>
+                        <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description || `최대 ${maxScore}점`}</div>
+                      </div>
+                      
+                      {/* Dynamic Score Display Badge */}
+                      <div style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'baseline', 
+                        gap: '2px', 
+                        backgroundColor: isTouched ? 'var(--primary)' : 'var(--surface-container)', 
+                        color: isTouched ? 'white' : 'var(--text-sub)', 
+                        padding: '4px 12px', 
+                        borderRadius: '20px',
+                        transition: 'all 0.2s ease',
+                        flexShrink: 0
+                      }}>
+                        <span style={{ fontSize: '20px', fontWeight: '800', lineHeight: 1 }}>{currentScore}</span>
+                        <span style={{ fontSize: '12px', opacity: 0.85 }}>/ {maxScore}점</span>
+                      </div>
+                    </div>
+
+                    {/* Interactive Range Slider */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <input 
+                        ref={(el) => inputRefs.current[c.id] = el}
+                        id={`score-slider-${c.id}`}
+                        type="range" 
+                        min="0"
+                        max={maxScore}
+                        step="1"
+                        className="score-slider"
+                        value={currentScore} 
+                        onChange={(e) => handleScoreChange(c.id, e.target.value)}
+                        onInput={(e) => handleScoreChange(c.id, e.target.value)}
+                        disabled={status === 'SUBMITTED'}
+                      />
+                      {/* Scale Labels */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-sub)', padding: '0 2px' }}>
+                        <span>0점</span>
+                        <span>중간 ({Math.round(maxScore / 2)}점)</span>
+                        <span>최대 ({maxScore}점)</span>
+                      </div>
+                    </div>
                   </div>
-                  <input 
-                    ref={(el) => inputRefs.current[c.id] = el}
-                    id={`score-input-${c.id}`}
-                    type="number" 
-                    className="input-field" 
-                    style={{ width: '100%', backgroundColor: status === 'SUBMITTED' ? '#e9ecef' : 'white' }}
-                    value={scores[c.id]} 
-                    onChange={(e) => handleScoreChange(c.id, e.target.value)}
-                    disabled={status === 'SUBMITTED'}
-                    placeholder="0"
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Total & Actions */}
@@ -813,12 +863,14 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                     </span>
                   </div>
 
-                  {/* Completed Score Cards */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '16px' }}>
+                  {/* Completed Score Cards with Slider */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                     {criteria?.map((c) => {
-                      const displayScore = isEditing 
+                      const maxScore = c.maxScore || 10;
+                      const rawScore = isEditing 
                         ? (editingScores[c.id] ?? '') 
                         : (evalData.scores[c.id] ?? '');
+                      const scoreVal = rawScore === '' ? 0 : Number(rawScore);
 
                       return (
                         <div 
@@ -827,25 +879,57 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                           style={{ 
                             display: 'flex', 
                             flexDirection: 'column', 
-                            gap: '8px', 
+                            gap: '12px', 
+                            padding: '16px',
                             backgroundColor: isEditing ? 'white' : 'var(--status-locked)',
-                            border: isEditing ? '1px solid var(--primary)' : '1px solid var(--surface-border)'
+                            border: isEditing ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)',
+                            transition: 'all 0.2s ease'
                           }}
                         >
-                          <div>
-                            <div className="title-md" style={{ whiteSpace: 'pre-wrap' }}>{c.label}</div>
-                            <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                            <div style={{ flex: 1 }}>
+                              <div className="title-md" style={{ color: 'var(--text-main)', marginBottom: '2px', whiteSpace: 'pre-wrap' }}>{c.label}</div>
+                              <div className="label-sm" style={{ color: 'var(--text-sub)', whiteSpace: 'pre-wrap' }}>{c.description || `최대 ${maxScore}점`}</div>
+                            </div>
+                            <div style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'baseline', 
+                              gap: '2px', 
+                              backgroundColor: isEditing ? 'var(--primary)' : 'var(--surface-container)', 
+                              color: isEditing ? 'white' : 'var(--text-sub)', 
+                              padding: '4px 12px', 
+                              borderRadius: '20px',
+                              flexShrink: 0
+                            }}>
+                              <span style={{ fontSize: '20px', fontWeight: '800', lineHeight: 1 }}>{scoreVal}</span>
+                              <span style={{ fontSize: '12px', opacity: 0.85 }}>/ {maxScore}점</span>
+                            </div>
                           </div>
-                          <input 
-                            ref={el => { if (isEditing) editInputRefs.current[c.id] = el; }}
-                            type="number" 
-                            className="input-field" 
-                            style={{ width: '100%', backgroundColor: isEditing ? 'white' : '#e9ecef', fontWeight: isEditing ? 'bold' : 'normal' }}
-                            value={displayScore} 
-                            onChange={(e) => isEditing && handleEditScoreChange(c.id, e.target.value)}
-                            disabled={!isEditing}
-                            placeholder="0"
-                          />
+                          
+                          {isEditing ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <input 
+                                ref={el => { if (isEditing) editInputRefs.current[c.id] = el; }}
+                                type="range" 
+                                min="0"
+                                max={maxScore}
+                                step="1"
+                                className="score-slider"
+                                value={scoreVal} 
+                                onChange={(e) => handleEditScoreChange(c.id, e.target.value)}
+                                onInput={(e) => handleEditScoreChange(c.id, e.target.value)}
+                              />
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-sub)', padding: '0 2px' }}>
+                                <span>0점</span>
+                                <span>중간 ({Math.round(maxScore / 2)}점)</span>
+                                <span>최대 ({maxScore}점)</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--surface-border)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(100, Math.max(0, (scoreVal / maxScore) * 100))}%`, height: '100%', backgroundColor: 'var(--primary)' }} />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
