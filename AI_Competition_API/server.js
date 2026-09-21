@@ -25,6 +25,87 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Anonymous Login API: Assigns sequential evaluator numbers (평가자 1, 평가자 2, ...) based on click order
+app.post('/api/anonymous-login', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Ensure anonymous_counter row exists in settings table
+    await connection.query(`
+      INSERT INTO settings (setting_key, setting_value)
+      VALUES ('anonymous_counter', '0')
+      ON CONFLICT (setting_key) DO NOTHING
+    `);
+
+    // Fetch current counter
+    const [existing] = await connection.query(`
+      SELECT setting_value FROM settings WHERE setting_key = 'anonymous_counter'
+    `);
+
+    let currentVal = parseInt(existing[0]?.setting_value || '0', 10);
+    if (isNaN(currentVal) || currentVal <= 0) {
+      // Find max number in evaluations if any
+      const [evals] = await connection.query(`
+        SELECT evaluator_name FROM evaluations WHERE evaluator_name LIKE '평가자 %'
+      `);
+      let maxNum = 0;
+      for (const row of evals) {
+        const match = (row.evaluator_name || '').match(/^평가자\s*(\d+)$/);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (n > maxNum) maxNum = n;
+        }
+      }
+      currentVal = maxNum;
+    }
+
+    const nextVal = currentVal + 1;
+    await connection.query(`
+      UPDATE settings SET setting_value = ? WHERE setting_key = 'anonymous_counter'
+    `, [String(nextVal)]);
+
+    await connection.commit();
+
+    const evaluatorName = `평가자 ${nextVal}`;
+    res.json({ success: true, user: { name: evaluatorName, role: 'USER', isAnonymous: true } });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Anonymous login error:', error);
+    res.status(500).json({ error: error.message || 'DB Error' });
+  } finally {
+    connection.release();
+  }
+});
+
+// Anonymous Counter Reset / Check API
+app.get('/api/anonymous-counter', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`SELECT setting_value FROM settings WHERE setting_key = 'anonymous_counter'`);
+    const counter = parseInt(rows[0]?.setting_value || '0', 10);
+    res.json({ counter });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+app.post('/api/anonymous-counter/reset', async (req, res) => {
+  const { startValue = 0 } = req.body;
+  try {
+    await pool.query(
+      `INSERT INTO settings (setting_key, setting_value) VALUES ('anonymous_counter', ?)
+       ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`,
+      [String(startValue)]
+    );
+    res.json({ success: true, counter: startValue });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+
 // Settings API
 app.get('/api/settings', async (req, res) => {
   try {

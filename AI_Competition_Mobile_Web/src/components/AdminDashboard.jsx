@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, LogOut, ArrowLeft, Users, Plus, Trash2, Edit2, Save, GripVertical, Download } from 'lucide-react';
+import { BarChart3, LogOut, ArrowLeft, Users, Plus, Trash2, Edit2, Save, GripVertical, Download, Settings, RefreshCw, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../apiConfig';
@@ -25,7 +25,39 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   const [editDeptOld, setEditDeptOld] = useState('');
   const [editDeptNew, setEditDeptNew] = useState('');
 
-  const [selectedAuthMode, setSelectedAuthMode] = useState(authMode || 'LIST');
+  const [selectedAuthMode, setSelectedAuthMode] = useState(authMode || 'ANONYMOUS');
+  const [anonCounter, setAnonCounter] = useState(0);
+
+  const fetchAnonCounter = () => {
+    fetch(`${API_BASE_URL}/api/anonymous-counter`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.counter !== undefined) setAnonCounter(data.counter);
+      })
+      .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchAnonCounter();
+  }, []);
+
+  const handleResetAnonCounter = async () => {
+    if (!window.confirm('무기명 평가자 순번을 0으로 초기화하시겠습니까?\n다음 접속자부터 [평가자 1]로 새로 부여됩니다.')) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/anonymous-counter/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startValue: 0 })
+      });
+      if (res.ok) {
+        setAnonCounter(0);
+        alert('무기명 순번이 0으로 초기화되었습니다.\n다음 접속자는 [평가자 1]로 발급됩니다.');
+      }
+    } catch(e) {
+      console.error(e);
+      alert('초기화 실패');
+    }
+  };
 
   useEffect(() => {
     if (authMode) setSelectedAuthMode(authMode);
@@ -319,9 +351,10 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
             value={selectedAuthMode} 
             onChange={(e) => setSelectedAuthMode(e.target.value)}
           >
-            <option value="LIST">로그인 리스트 선택</option>
-            <option value="ID_PW">로그인 ID/PW</option>
-            <option value="NAME">로그인 이름 직접입력</option>
+            <option value="ANONYMOUS">무기명 접속 방식</option>
+            <option value="NAME">이름 직접입력 방식</option>
+            <option value="LIST">리스트 선택 방식</option>
+            <option value="ID_PW">사번/비밀번호 방식</option>
           </select>
           <button 
             className="btn btn-secondary" 
@@ -353,6 +386,12 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
           onClick={() => setActiveTab('CRITERIA')}
         >
           항목 관리
+        </button>
+        <button 
+          style={{ flex: '1 1 100px', padding: '12px', background: 'none', border: 'none', borderBottom: activeTab === 'SETTINGS' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'SETTINGS' ? 'var(--primary)' : 'var(--text-sub)', fontWeight: 'bold' }}
+          onClick={() => { setActiveTab('SETTINGS'); fetchAnonCounter(); }}
+        >
+          시스템 설정
         </button>
       </div>
 
@@ -671,6 +710,120 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
             >
               <Save size={18} /> 평가 항목 설정 최종 저장
             </button>
+          </div>
+        )}
+
+        {activeTab === 'SETTINGS' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Login Mode Settings Card */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 className="title-md" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={18} /> 기본 로그인 방식 설정
+              </h3>
+              <p className="body-md" style={{ color: 'var(--text-sub)' }}>
+                평가자들이 접속했을 때 처음 나타나는 기본 로그인 방식을 지정합니다.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[
+                  { key: 'ANONYMOUS', title: '무기명 접속 방식 (기본)', desc: '클릭 한 번으로 접속하며 접속 순서대로 [평가자 1], [평가자 2]... 순번이 자동 부여됩니다.' },
+                  { key: 'NAME', title: '이름 직접 입력 방식', desc: '평가자가 본인의 이름을 텍스트 입력창에 직접 타이핑하여 입장합니다.' },
+                  { key: 'LIST', title: '리스트 선택 방식', desc: '사전 등록된 평가자 명단 드롭다운에서 본인 이름을 선택하여 입장합니다.' },
+                  { key: 'ID_PW', title: '사번/비밀번호 보안 로그인', desc: '사번과 패스워드를 입력하여 검증 후 입장합니다.' }
+                ].map((mode) => (
+                  <label 
+                    key={mode.key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '12px',
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      border: selectedAuthMode === mode.key ? '2px solid var(--primary)' : '1px solid var(--surface-border)',
+                      backgroundColor: selectedAuthMode === mode.key ? 'var(--surface-container-low, #f0f4f9)' : 'white',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <input 
+                      type="radio" 
+                      name="authModeRadio" 
+                      value={mode.key}
+                      checked={selectedAuthMode === mode.key}
+                      onChange={(e) => setSelectedAuthMode(e.target.value)}
+                      style={{ marginTop: '3px' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '14px', color: selectedAuthMode === mode.key ? 'var(--primary)' : 'var(--text-main)' }}>
+                        {mode.title}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-sub)', marginTop: '2px' }}>
+                        {mode.desc}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <button 
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: '12px', marginTop: '4px' }}
+                onClick={() => handleSaveAndRedirectLogin(selectedAuthMode)}
+              >
+                <Save size={16} /> 설정 저장 후 메인 화면으로 이동
+              </button>
+            </div>
+
+            {/* Anonymous Evaluator Counter Card */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 className="title-md" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserCheck size={18} /> 무기명 평가자 순번 관리
+              </h3>
+              <p className="body-md" style={{ color: 'var(--text-sub)' }}>
+                무기명 접속 버튼을 누른 평가자에게 부여된 순번 상태를 확인하고 필요 시 0으로 초기화합니다.
+              </p>
+
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '16px', 
+                backgroundColor: 'var(--surface-container-low, #f0f4f9)', 
+                borderRadius: '8px',
+                border: '1px solid var(--surface-border)',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>현재 발급된 마지막 순번</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--primary)', marginTop: '4px' }}>
+                    {anonCounter > 0 ? `평가자 ${anonCounter}` : '발급 내역 없음 (0번)'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-sub)', marginTop: '2px' }}>
+                    다음 접속자에게 부여될 이름: <strong>평가자 {anonCounter + 1}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                    onClick={fetchAnonCounter}
+                  >
+                    <RefreshCw size={14} /> 새로고침
+                  </button>
+                  <button 
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 14px', fontSize: '12px', borderColor: 'var(--error)', color: 'var(--error)' }}
+                    onClick={handleResetAnonCounter}
+                  >
+                    순번 0으로 초기화
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
