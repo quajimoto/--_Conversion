@@ -126,7 +126,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
               if (ev[c.id] !== undefined) sc[c.id] = ev[c.id];
             });
             return {
-              date: ev.date,
+              date: ev.date ? String(ev.date).split('T')[0] : '',
               department: ev.department_name,
               scores: sc,
               totalScore: ev.total
@@ -351,12 +351,13 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       setSavedDrafts({ ...currentDrafts });
     }
 
+    const prevFiltered = completedEvaluations.filter(e => e.department !== targetDept);
     const newCompleted = [{
       date: evaluationDate,
       department: targetDept,
       scores: { ...scores },
       totalScore
-    }, ...completedEvaluations];
+    }, ...prevFiltered];
     
     setCompletedEvaluations(newCompleted);
     setExpandedDepts(prev => ({ ...prev, [targetDept]: false }));
@@ -401,12 +402,13 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       setSavedDrafts({ ...currentDrafts });
     }
 
+    const prevFiltered = completedEvaluations.filter(e => e.department !== targetDept);
     const newCompleted = [{
       date: evaluationDate,
       department: targetDept,
       scores: { ...scores },
       totalScore
-    }, ...completedEvaluations];
+    }, ...prevFiltered];
     
     setCompletedEvaluations(newCompleted);
     setExpandedDepts(prev => ({ ...prev, [targetDept]: false }));
@@ -428,18 +430,18 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   // In-place editing for completed evaluations
-  const [editingCompletedIndex, setEditingCompletedIndex] = useState(null);
+  const [editingCompletedDept, setEditingCompletedDept] = useState(null);
   const [editingScores, setEditingScores] = useState({});
   const editInputRefs = useRef({});
 
-  const handleStartEditCompleted = (idx, evalData) => {
-    setEditingCompletedIndex(idx);
+  const handleStartEditCompleted = (evalData) => {
+    setEditingCompletedDept(evalData.department);
     setEditingScores({ ...evalData.scores });
     setExpandedDepts(prev => ({ ...prev, [evalData.department]: true }));
   };
 
   const handleCancelEditCompleted = () => {
-    setEditingCompletedIndex(null);
+    setEditingCompletedDept(null);
     setEditingScores({});
   };
 
@@ -457,7 +459,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     setEditingScores(prev => ({ ...prev, [field]: numValue }));
   };
 
-  const handleSaveEditCompleted = async (idx, evalData) => {
+  const handleSaveEditCompleted = async (evalData) => {
     // 0점 / 미입력 항목 확인
     const zeroCriteria = criteria?.filter(c => {
       const val = editingScores[c.id];
@@ -500,16 +502,19 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
       }
 
       setCompletedEvaluations(prev => {
-        const updated = [...prev];
-        updated[idx] = {
-          ...updated[idx],
-          scores: { ...editingScores },
-          totalScore: newTotal
-        };
-        return updated;
+        return prev.map(item => {
+          if (item.department === evalData.department) {
+            return {
+              ...item,
+              scores: { ...editingScores },
+              totalScore: newTotal
+            };
+          }
+          return item;
+        });
       });
 
-      setEditingCompletedIndex(null);
+      setEditingCompletedDept(null);
       setEditingScores({});
       alert(`[${evalData.department}] 평가 점수가 성공적으로 수정되었습니다.`);
     } catch(e) {
@@ -519,6 +524,16 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
   };
 
   const totalScore = Object.values(scores).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+
+  // Sort completed evaluations strictly by the order of registered departments in Admin
+  const sortedCompletedEvaluations = [...completedEvaluations].sort((a, b) => {
+    const idxA = departments && departments.length > 0 ? departments.indexOf(a.department) : -1;
+    const idxB = departments && departments.length > 0 ? departments.indexOf(b.department) : -1;
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return (a.department || '').localeCompare(b.department || '');
+  });
 
   return (
     <div style={{ paddingBottom: '60px' }}>
@@ -820,14 +835,14 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
         )}
         
         {/* Completed Evaluations */}
-        {completedEvaluations.length > 0 && (
+        {sortedCompletedEvaluations.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '40px', borderTop: '2px dashed var(--surface-border)', paddingTop: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <h3 className="title-md" style={{ color: 'var(--text-sub)' }}>완료된 평가 내역 (최신순)</h3>
+              <h3 className="title-md" style={{ color: 'var(--text-sub)' }}>완료된 평가 내역 (부서 등록순)</h3>
               <span className="label-sm" style={{ color: 'var(--text-sub)' }}>완료된 부서도 아래에서 바로 점수 수정이 가능합니다</span>
             </div>
-            {completedEvaluations.map((evalData, idx) => {
-              const isEditing = editingCompletedIndex === idx;
+            {sortedCompletedEvaluations.map((evalData) => {
+              const isEditing = editingCompletedDept === evalData.department;
               const isExpanded = isEditing || Boolean(expandedDepts[evalData.department]);
               const currentCardTotal = isEditing 
                 ? Object.values(editingScores).reduce((acc, curr) => acc + (Number(curr) || 0), 0)
@@ -835,7 +850,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
 
               return (
                 <div 
-                  key={idx} 
+                  key={evalData.department} 
                   style={{ 
                     border: isEditing ? '2px solid var(--primary)' : '1px solid var(--surface-border)',
                     borderRadius: 'var(--rounded-md)',
@@ -916,7 +931,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                               whiteSpace: 'nowrap',
                               flexShrink: 0
                             }}
-                            onClick={() => handleStartEditCompleted(idx, evalData)}
+                            onClick={() => handleStartEditCompleted(evalData)}
                           >
                             <Edit2 size={13} />
                             점수 수정
@@ -1055,7 +1070,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                                 type="button"
                                 className="btn btn-primary" 
                                 style={{ padding: '8px 16px', fontSize: '13px' }}
-                                onClick={() => handleSaveEditCompleted(idx, evalData)}
+                                onClick={() => handleSaveEditCompleted(evalData)}
                               >
                                 수정 완료
                               </button>
@@ -1065,7 +1080,7 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
                               type="button"
                               className="btn btn-secondary" 
                               style={{ padding: '8px 14px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
-                              onClick={() => handleStartEditCompleted(idx, evalData)}
+                              onClick={() => handleStartEditCompleted(evalData)}
                             >
                               <Edit2 size={14} />
                               점수 수정
