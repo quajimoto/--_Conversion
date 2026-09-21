@@ -215,9 +215,10 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     const map = {};
     results.filter(r => !r.isDeleted).forEach(r => {
       const key = r[groupBy] || (groupBy === 'department_name' ? '부서 미지정' : '알 수 없음');
-      if(!map[key]) map[key] = { count: 0, totalScore: 0, criteria: {} };
+      if(!map[key]) map[key] = { count: 0, totalScore: 0, criteria: {}, items: [] };
       map[key].count++;
       map[key].totalScore += r.total;
+      map[key].items.push(r);
       criteria?.forEach(c => {
          map[key].criteria[c.id] = (map[key].criteria[c.id] || 0) + (r[c.id] || 0);
       });
@@ -230,8 +231,40 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         avgCriteria[c.id] = (data.criteria[c.id] / data.count).toFixed(1);
       });
       const formattedTotalScore = Number.isInteger(data.totalScore) ? data.totalScore : Number(data.totalScore.toFixed(1));
-      return { key, count: data.count, totalScore: formattedTotalScore, avgTotal, avgCriteria };
-    }).sort((a,b) => b.avgTotal - a.avgTotal);
+
+      // Calculate Trimmed Sum (최고점 및 최하점 제외 합계)
+      let trimmedSum = null;
+      let trimmedAvg = null;
+      let minItem = null;
+      let maxItem = null;
+      if (data.items.length >= 3) {
+        const sortedItems = [...data.items].sort((a, b) => a.total - b.total);
+        minItem = sortedItems[0];
+        maxItem = sortedItems[sortedItems.length - 1];
+        const trimmed = sortedItems.slice(1, -1);
+        const sum = trimmed.reduce((acc, curr) => acc + curr.total, 0);
+        trimmedSum = Number.isInteger(sum) ? sum : Number(sum.toFixed(1));
+        trimmedAvg = (sum / trimmed.length).toFixed(1);
+      }
+
+      return {
+        key,
+        count: data.count,
+        totalScore: formattedTotalScore,
+        avgTotal,
+        avgCriteria,
+        trimmedSum,
+        trimmedAvg,
+        minItem,
+        maxItem,
+        items: data.items
+      };
+    }).sort((a,b) => {
+      if (groupBy === 'name' && b.trimmedSum !== null && a.trimmedSum !== null) {
+        return b.trimmedSum - a.trimmedSum;
+      }
+      return b.avgTotal - a.avgTotal;
+    });
   };
 
   const handleDownloadExcel = () => {
@@ -308,7 +341,41 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
         ws['!merges'] = merges;
         
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "전체결과");
+        XLSX.utils.book_append_sheet(wb, ws, "상세결과");
+
+        // 2. 평가자별 집계 시트 (최고/최하점 제외 유효 합계 포함)
+        const byEvalData = {};
+        data.results.forEach(r => {
+          byEvalData[r.name] = byEvalData[r.name] || [];
+          byEvalData[r.name].push(r);
+        });
+
+        const evalSheetHeader = ['심사위원', '평가 부서수', '최고점(제외 부서)', '최고점', '최하점(제외 부서)', '최하점', '최고·최하 제외 합계', '유효 평균', '전체 원점수 총합'];
+        const evalSheetRows = Object.keys(byEvalData).map(name => {
+          const items = byEvalData[name];
+          const sorted = [...items].sort((a, b) => a.total - b.total);
+          const count = sorted.length;
+          const rawTotal = sorted.reduce((sum, item) => sum + item.total, 0);
+
+          if (count >= 3) {
+            const min = sorted[0];
+            const max = sorted[sorted.length - 1];
+            const trimmed = sorted.slice(1, -1);
+            const sum = trimmed.reduce((s, it) => s + it.total, 0);
+            const avg = (sum / trimmed.length).toFixed(1);
+            return [name, count, `${max.department_name} (${max.total}점)`, max.total, `${min.department_name} (${min.total}점)`, min.total, sum, Number(avg), rawTotal];
+          } else {
+            return [name, count, '-', '-', '-', '-', '-', '-', rawTotal];
+          }
+        }).sort((a, b) => {
+          const scoreA = typeof a[6] === 'number' ? a[6] : -1;
+          const scoreB = typeof b[6] === 'number' ? b[6] : -1;
+          return scoreB - scoreA;
+        });
+
+        const wsEval = XLSX.utils.aoa_to_sheet([evalSheetHeader, ...evalSheetRows]);
+        XLSX.utils.book_append_sheet(wb, wsEval, "평가자별_최고최하제외");
+
         XLSX.writeFile(wb, `전체_평가결과_${date}.xlsx`);
       }
     } catch (e) {
@@ -565,16 +632,46 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                   </div>
                 )}
                 {getAggregatedResults(summaryMode === 'BY_DEPT' ? 'department_name' : 'name').map((agg, idx) => (
-                  <div key={idx} className="card" style={{ padding: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                      <span className="title-md">{agg.key}</span>
-                      <span className="label-md" style={{ backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '3px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>총점 <strong>{agg.totalScore}</strong>점</span>
-                        <span style={{ opacity: 0.5 }}>|</span>
-                        <span>평균 <strong>{agg.avgTotal}</strong>점</span>
-                        <span style={{ fontSize: '11px', opacity: 0.8 }}>({agg.count}건)</span>
-                      </span>
+                  <div key={idx} className="card" style={{ padding: '14px', border: summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="title-md">{agg.key}</span>
+                        {summaryMode === 'BY_EVALUATOR' && (
+                          <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
+                            ({agg.count}개 부서 평가)
+                          </span>
+                        )}
+                      </div>
+                      
+                      {summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span className="label-md" style={{ backgroundColor: 'var(--primary)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontWeight: 'bold' }}>
+                            최고·최하 제외 합계: {agg.trimmedSum}점
+                          </span>
+                          <span className="label-sm" style={{ backgroundColor: 'var(--surface-container)', color: 'var(--text-sub)', padding: '4px 8px', borderRadius: '12px' }}>
+                            유효평균: {agg.trimmedAvg}점
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="label-md" style={{ backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '3px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span>총점 <strong>{agg.totalScore}</strong>점</span>
+                          <span style={{ opacity: 0.5 }}>|</span>
+                          <span>평균 <strong>{agg.avgTotal}</strong>점</span>
+                          <span style={{ fontSize: '11px', opacity: 0.8 }}>({agg.count}건)</span>
+                        </span>
+                      )}
                     </div>
+
+                    {summaryMode === 'BY_EVALUATOR' && agg.trimmedSum !== null && (
+                      <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: 'var(--text-sub)', marginBottom: '10px', backgroundColor: 'var(--surface-header, #f0f7f9)', padding: '8px 12px', borderRadius: '6px', flexWrap: 'wrap', border: '1px solid rgba(26, 100, 119, 0.15)' }}>
+                        <span>🔺 <strong style={{ color: '#cf1322' }}>최고 제외:</strong> {agg.maxItem?.department_name} ({agg.maxItem?.total}점)</span>
+                        <span style={{ opacity: 0.4 }}>|</span>
+                        <span>🔻 <strong style={{ color: '#096dd9' }}>최하 제외:</strong> {agg.minItem?.department_name} ({agg.minItem?.total}점)</span>
+                        <span style={{ opacity: 0.4 }}>|</span>
+                        <span>전체 원점수 총합: {agg.totalScore}점</span>
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '12px', color: 'var(--text-sub)', fontSize: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
                       {criteria?.map(c => (
                         <span key={c.id} style={{ whiteSpace: 'nowrap' }}>{c.label}: {agg.avgCriteria[c.id] || 0}</span>

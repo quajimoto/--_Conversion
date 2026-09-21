@@ -535,6 +535,47 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
     return (a.department || '').localeCompare(b.department || '');
   });
 
+  // Calculate Trimmed Score Stats (최하점 및 최고점을 제외한 나머지 평가 부서 점수의 합계)
+  const trimmedScoreStats = React.useMemo(() => {
+    const validEvals = completedEvaluations.filter(e => e && e.department);
+    const count = validEvals.length;
+    const rawTotal = validEvals.reduce((acc, curr) => acc + (Number(curr.totalScore) || 0), 0);
+
+    if (count < 3) {
+      return {
+        count,
+        rawTotal,
+        hasEnough: false,
+        minEval: count > 0 ? [...validEvals].sort((a, b) => a.totalScore - b.totalScore)[0] : null,
+        maxEval: count > 0 ? [...validEvals].sort((a, b) => b.totalScore - a.totalScore)[0] : null,
+        trimmedSum: 0,
+        trimmedAvg: 0,
+        trimmedCount: 0
+      };
+    }
+
+    // Sort ascending by totalScore
+    const sorted = [...validEvals].sort((a, b) => a.totalScore - b.totalScore);
+    const minEval = sorted[0];
+    const maxEval = sorted[sorted.length - 1];
+    const trimmedList = sorted.slice(1, -1);
+    const sum = trimmedList.reduce((acc, curr) => acc + (Number(curr.totalScore) || 0), 0);
+    const trimmedSum = Number.isInteger(sum) ? sum : Number(sum.toFixed(1));
+    const trimmedAvg = (sum / trimmedList.length).toFixed(1);
+
+    return {
+      count,
+      rawTotal,
+      hasEnough: true,
+      minEval,
+      maxEval,
+      trimmedList,
+      trimmedSum,
+      trimmedAvg,
+      trimmedCount: trimmedList.length
+    };
+  }, [completedEvaluations]);
+
   return (
     <div style={{ paddingBottom: '60px' }}>
       {/* Header */}
@@ -581,15 +622,78 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
 
       <div className="container">
         {isAllEvaluated ? (
-          <div className="card" style={{ textAlign: 'center', padding: '36px 20px', backgroundColor: 'var(--surface-container-lowest)', border: '2px solid var(--primary)', marginBottom: '24px' }}>
-            <div style={{ display: 'inline-flex', padding: '16px', borderRadius: '50%', backgroundColor: 'var(--primary-container, #e3f2fd)', color: 'var(--primary)', marginBottom: '16px' }}>
+          <div className="card" style={{ textAlign: 'center', padding: '32px 20px', backgroundColor: 'var(--surface-container-lowest)', border: '2px solid var(--primary)', marginBottom: '24px' }}>
+            <div style={{ display: 'inline-flex', padding: '16px', borderRadius: '50%', backgroundColor: 'var(--primary-container, #e3f2fd)', color: 'var(--primary)', marginBottom: '14px' }}>
               <CheckCircle size={44} color="var(--primary)" />
             </div>
-            <h2 className="headline-md" style={{ color: 'var(--primary)', marginBottom: '8px' }}>
+            <h2 className="headline-md" style={{ color: 'var(--primary)', marginBottom: '6px' }}>
               모든 부서 평가가 완료되었습니다!
             </h2>
-            <p className="body-md" style={{ color: 'var(--text-sub)', lineHeight: '1.6', margin: '0 auto 16px', maxWidth: '440px' }}>
-              전 부서({departments.length}개 부서)의 평가 점수가 서버에 안전하게 최종 저장되었습니다.<br />
+            <p className="body-md" style={{ color: 'var(--text-sub)', lineHeight: '1.5', margin: '0 auto 20px', maxWidth: '440px' }}>
+              전 부서({departments.length}개 부서)의 평가 점수가 서버에 안전하게 최종 저장되었습니다.
+            </p>
+
+            {/* Trimmed Score Summary Box */}
+            {trimmedScoreStats.hasEnough ? (
+              <div style={{ 
+                maxWidth: '460px', 
+                margin: '0 auto 20px', 
+                backgroundColor: 'var(--surface-header, #f0f7f9)', 
+                border: '2px solid var(--primary)', 
+                borderRadius: '12px', 
+                padding: '20px 16px',
+                textAlign: 'left',
+                boxShadow: '0 4px 16px rgba(26, 100, 119, 0.08)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(26, 100, 119, 0.2)', paddingBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
+                  <span className="title-md" style={{ color: 'var(--primary)', fontWeight: 'bold' }}>
+                    🏆 최종 집계 점수 (최고·최하점 제외)
+                  </span>
+                  <span className="label-sm" style={{ backgroundColor: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: '10px' }}>
+                    {trimmedScoreStats.trimmedCount}개 부서 합계
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0', padding: '12px 16px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--surface-border)' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-sub)' }}>최고·최하 제외 유효 합계</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-sub)', marginTop: '2px' }}>
+                      (유효 평균: <strong>{trimmedScoreStats.trimmedAvg}점</strong>)
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '32px', fontWeight: '900', color: 'var(--primary)' }}>
+                      {trimmedScoreStats.trimmedSum}
+                    </span>
+                    <span style={{ fontSize: '14px', color: 'var(--text-sub)', marginLeft: '4px' }}>점</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                  <div style={{ backgroundColor: '#fff1f0', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ffccc7' }}>
+                    <div style={{ color: '#cf1322', fontWeight: 'bold' }}>🔺 최고점 제외</div>
+                    <div style={{ color: 'var(--text-main)', marginTop: '2px' }}>
+                      {trimmedScoreStats.maxEval?.department}: <strong>{trimmedScoreStats.maxEval?.totalScore}점</strong>
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: '#e6f7ff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #91d5ff' }}>
+                    <div style={{ color: '#096dd9', fontWeight: 'bold' }}>🔻 최하점 제외</div>
+                    <div style={{ color: 'var(--text-main)', marginTop: '2px' }}>
+                      {trimmedScoreStats.minEval?.department}: <strong>{trimmedScoreStats.minEval?.totalScore}점</strong>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '10px', textAlign: 'center' }}>
+                  전체 {trimmedScoreStats.count}개 부서 원점수 총합: {trimmedScoreStats.rawTotal}점
+                </div>
+              </div>
+            ) : (
+              <div style={{ maxWidth: '440px', margin: '0 auto 16px', padding: '12px', backgroundColor: 'var(--surface-container-low)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-sub)' }}>
+                평가 부서가 3개 이상일 때 최고/최하점 제외 합계가 산출됩니다. (현재 {trimmedScoreStats.count}개 완료, 원점수 총점: {trimmedScoreStats.rawTotal}점)
+              </div>
+            )}
+
+            <p className="body-md" style={{ color: 'var(--text-sub)', fontSize: '13px', margin: '0 auto' }}>
               점수를 다시 검토하거나 수정하시려면 아래 <strong>[완료된 평가 내역]</strong>에서 <strong>[점수 수정]</strong>을 이용해 주세요.
             </p>
           </div>
@@ -841,6 +945,53 @@ const EvaluationForm = ({ user, onLogout, departments, criteria }) => {
               <h3 className="title-md" style={{ color: 'var(--text-sub)' }}>완료된 평가 내역 (부서 등록순)</h3>
               <span className="label-sm" style={{ color: 'var(--text-sub)' }}>완료된 부서도 아래에서 바로 점수 수정이 가능합니다</span>
             </div>
+
+            {/* Real-time Trimmed Score Banner in Completed List */}
+            {trimmedScoreStats.hasEnough ? (
+              <div style={{ 
+                backgroundColor: 'var(--surface-header, #f0f7f9)', 
+                border: '1.5px solid var(--primary)', 
+                borderRadius: '10px', 
+                padding: '14px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                boxShadow: '0 2px 8px rgba(26, 100, 119, 0.06)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--primary)' }}>
+                      📊 평가 부서 점수 집계 (최고·최하점 제외)
+                    </span>
+                    <span style={{ fontSize: '11px', backgroundColor: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                      {trimmedScoreStats.trimmedCount}개 부서 합산
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-sub)' }}>유효 합계:</span>
+                    <span style={{ fontSize: '24px', fontWeight: '900', color: 'var(--primary)' }}>
+                      {trimmedScoreStats.trimmedSum}
+                    </span>
+                    <span style={{ fontSize: '14px', color: 'var(--primary)', fontWeight: 'bold' }}>점</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-sub)', marginLeft: '6px' }}>
+                      (유효평균 {trimmedScoreStats.trimmedAvg}점)
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: 'var(--text-sub)', flexWrap: 'wrap', borderTop: '1px solid rgba(26, 100, 119, 0.15)', paddingTop: '8px', alignItems: 'center' }}>
+                  <span>🔺 <strong style={{ color: '#cf1322' }}>최고 제외:</strong> {trimmedScoreStats.maxEval?.department} ({trimmedScoreStats.maxEval?.totalScore}점)</span>
+                  <span style={{ opacity: 0.4 }}>|</span>
+                  <span>🔻 <strong style={{ color: '#096dd9' }}>최하 제외:</strong> {trimmedScoreStats.minEval?.department} ({trimmedScoreStats.minEval?.totalScore}점)</span>
+                  <span style={{ opacity: 0.4 }}>|</span>
+                  <span>전체 원점수 총합: {trimmedScoreStats.rawTotal}점 ({trimmedScoreStats.count}건)</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ backgroundColor: 'var(--surface-container-low, #f8f9fa)', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', color: 'var(--text-sub)', border: '1px solid var(--surface-border)' }}>
+                현재 {trimmedScoreStats.count}개 부서 완료 (최고·최하점 제외 합계는 3개 이상 부서 평가 시 자동 산출됩니다.)
+              </div>
+            )}
             {sortedCompletedEvaluations.map((evalData) => {
               const isEditing = editingCompletedDept === evalData.department;
               const isExpanded = isEditing || Boolean(expandedDepts[evalData.department]);
