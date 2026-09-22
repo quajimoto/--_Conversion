@@ -33,16 +33,39 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   const [completionTab, setCompletionTab] = useState('DEPT'); // 'DEPT' | 'EVALUATOR'
   const [deptRankings, setDeptRankings] = useState([]);
   const [evalRankings, setEvalRankings] = useState([]);
+  const [availableDates, setAvailableDates] = useState([]);
 
-  // 평가완료 버튼 클릭 핸들러 (최고점/최하점 제외 1, 2, 3등 순위 자동 산출)
+  // 날짜 일치 여부 비교 헬퍼 함수
+  const matchesDate = (itemDate, targetDate) => {
+    if (!targetDate || targetDate === '전체') return true;
+    if (!itemDate) return false;
+    const cleanDate = itemDate.includes('T') ? itemDate.split('T')[0] : itemDate;
+    return cleanDate === targetDate;
+  };
+
+  const fetchAvailableDates = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/dates`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.dates) {
+          setAvailableDates(data.dates);
+        }
+      }
+    } catch(e) {
+      console.error('Failed to fetch available dates:', e);
+    }
+  };
+
+  // 평가완료 버튼 클릭 핸들러 (선택된 평가날짜에 대해서만 최고점/최하점 제외 1, 2, 3등 순위 자동 산출)
   const handleEvaluationComplete = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/results?department=전체&date=${date}`);
       const data = await res.json();
-      const allResults = (data.results || []).filter(r => !r.isDeleted);
+      const allResults = (data.results || []).filter(r => !r.isDeleted && matchesDate(r.date, date));
 
       if (allResults.length === 0) {
-        alert('평가 완료를 진행할 제출된 평가 데이터가 없습니다.');
+        alert(`선택하신 평가날짜(${date})에 제출된 평가 데이터가 없습니다.\n평가가 등록된 날짜를 선택해주세요.`);
         return;
       }
 
@@ -235,6 +258,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
 
   useEffect(() => {
     fetchAnonCounter();
+    fetchAvailableDates();
   }, []);
 
   const handleResetAnonCounter = async () => {
@@ -276,16 +300,40 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     if (authMode) setSelectedAuthMode(authMode);
   }, [authMode]);
 
-  const handleFetchResults = async (deptToFetch = selectedDept) => {
+  const handleFetchResults = async (deptToFetch = selectedDept, dateToFetch = date) => {
     try {
       const target = deptToFetch || '전체';
-      const res = await fetch(`${API_BASE_URL}/api/admin/results?department=${encodeURIComponent(target)}&date=${date}`);
+      const curDate = dateToFetch || date;
+      const res = await fetch(`${API_BASE_URL}/api/admin/results?department=${encodeURIComponent(target)}&date=${encodeURIComponent(curDate)}`);
       const data = await res.json();
       if (data.results) {
-        setResults(data.results);
-        setAverages(data.averages || { total: 0 });
+        // 선택된 평가날짜와 일치하는 데이터만 엄격히 필터링
+        const filtered = (data.results || []).filter(r => !r.isDeleted && matchesDate(r.date, curDate));
+        setResults(filtered);
+
+        // 선택된 날짜에 맞는 평균 점수 재계산
+        if (filtered.length > 0) {
+          const avgMap = {};
+          let totalSum = 0;
+          filtered.forEach(r => {
+            totalSum += (Number(r.total) || 0);
+            criteria?.forEach(c => {
+              avgMap[c.id] = (avgMap[c.id] || 0) + (Number(r[c.id]) || 0);
+            });
+          });
+          const count = filtered.length;
+          criteria?.forEach(c => {
+            avgMap[c.id] = (avgMap[c.id] / count).toFixed(1);
+          });
+          avgMap.total = (totalSum / count).toFixed(1);
+          setAverages(avgMap);
+        } else {
+          setAverages({ total: 0 });
+        }
+
         setCheckedResults([]);
       }
+      fetchAvailableDates();
     } catch (e) {
       console.error(e);
       alert('데이터를 가져오는데 실패했습니다.');
@@ -293,7 +341,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   };
 
   useEffect(() => {
-    handleFetchResults(selectedDept);
+    handleFetchResults(selectedDept, date);
   }, [selectedDept, date]);
 
   const handleAddDepartment = () => {
@@ -488,12 +536,12 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
   };
 
   const handleDownloadExcel = () => {
-    if (!results || results.length === 0) {
-      alert('다운로드할 평가 데이터가 없습니다.');
+    const validRows = results.filter(r => !r.isDeleted && matchesDate(r.date, date)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!validRows || validRows.length === 0) {
+      alert(`선택하신 평가날짜(${date})에 다운로드할 평가 데이터가 없습니다.`);
       return;
     }
     const criteriaLabels = criteria.map(c => c.label);
-    const validRows = results.filter(r => !r.isDeleted).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     
     const headerRow = ['부서명', '심사위원', '평가 날짜', ...criteriaLabels, '총점'];
     
@@ -540,12 +588,11 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/results?department=전체&date=${date}`);
       const data = await res.json();
-      if (!data.results || data.results.length === 0) {
-        alert('다운로드할 평가 데이터가 없습니다.');
+      const validResults = (data.results || []).filter(r => !r.isDeleted && matchesDate(r.date, date));
+      if (!validResults || validResults.length === 0) {
+        alert(`선택하신 평가날짜(${date})에 다운로드할 평가 데이터가 없습니다.`);
         return;
       }
-
-      const validResults = data.results.filter(r => !r.isDeleted);
       const criteriaLabels = criteria.map(c => c.label);
       const wb = XLSX.utils.book_new();
 
@@ -977,8 +1024,40 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                   </select>
                 </div>
               </div>
+
+              {/* 등록된 평가일자 퀵 선택 바 */}
+              {availableDates.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--text-sub)', backgroundColor: 'var(--surface-container-low)', padding: '8px 12px', borderRadius: '6px' }}>
+                  <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>📅 평가 데이터 등록일:</span>
+                  {availableDates.map(item => (
+                    <button
+                      key={item.eval_date}
+                      type="button"
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: '16px',
+                        border: date === item.eval_date ? '1.5px solid var(--primary)' : '1px solid var(--surface-border)',
+                        backgroundColor: date === item.eval_date ? 'var(--primary-container)' : 'white',
+                        color: date === item.eval_date ? 'var(--primary)' : 'var(--text-main)',
+                        fontWeight: date === item.eval_date ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        boxShadow: date === item.eval_date ? '0 2px 4px rgba(26,100,119,0.2)' : 'none'
+                      }}
+                      onClick={() => setDate(item.eval_date)}
+                    >
+                      <span>{item.eval_date}</span>
+                      <span style={{ fontSize: '11px', opacity: 0.85 }}>({item.count}건)</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button className="btn btn-primary" style={{ flex: '1 1 90px' }} onClick={() => handleFetchResults(selectedDept)}>
+                <button className="btn btn-primary" style={{ flex: '1 1 90px' }} onClick={() => handleFetchResults(selectedDept, date)}>
                   <BarChart3 size={18} />
                   조회
                 </button>
@@ -1017,42 +1096,56 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                 <h3 className="title-md" style={{ margin: 0, color: 'var(--primary)' }}>
                   {selectedDept === '전체' ? '전체 부서' : (selectedDept || '부서')} 점수 평균
+                  <span style={{ fontSize: '13px', fontWeight: 'normal', color: 'var(--text-sub)', marginLeft: '8px' }}>(평가일자: {date})</span>
                 </h3>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-sub)' }}>
                   ※ (절사): 최고 1건, 최하 1건 제외한 평가자 절사평균
                 </span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '12px' }}>
-                {criteria?.map(c => {
-                  const valid = results.filter(r => !r.isDeleted);
-                  const scores = valid.map(r => Number(r[c.id]) || 0).sort((a, b) => a - b);
-                  let tAvg = null;
-                  if (scores.length >= 3) {
-                    const trimmed = scores.slice(1, -1);
-                    tAvg = (trimmed.reduce((a, b) => a + b, 0) / trimmed.length).toFixed(1);
-                  }
-                  return (
-                    <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '2px', backgroundColor: 'white', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(26,100,119,0.12)' }}>
-                      <span className="body-md" style={{ color: 'var(--text-sub)', fontSize: '12px' }}>{c.label}</span>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <span className="title-md" style={{ fontSize: '15px', color: 'var(--primary)' }}>
-                          {tAvg !== null ? `${tAvg}점` : `${averages[c.id] || 0}점`}
-                          {tAvg !== null && <span style={{ fontSize: '11px', fontWeight: 'normal', color: 'var(--text-sub)', marginLeft: '3px' }}>(절사)</span>}
-                        </span>
-                        {tAvg !== null && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>
-                            원 {averages[c.id] || 0}점
-                          </span>
-                        )}
-                      </div>
+              {results.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-sub)', fontSize: '13px' }}>
+                  <div>선택하신 평가날짜(<strong>{date}</strong>)에는 등록된 평가 점수가 없습니다.</div>
+                  {availableDates.length > 0 && availableDates.some(d => d.eval_date !== date) && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--primary)', fontWeight: 'bold' }}>
+                      💡 상단의 [평가 데이터 등록일] 버튼을 클릭하시면 해당 평가일의 결과와 집계를 확인하실 수 있습니다.
                     </div>
-                  );
-                })}
-              </div>
-              <div style={{ borderTop: '1px solid var(--primary)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="title-md">종합 원점수 평균</span>
-                <span className="headline-md" style={{ color: 'var(--primary)' }}>{averages.total}점</span>
-              </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                    {criteria?.map(c => {
+                      const valid = results.filter(r => !r.isDeleted);
+                      const scores = valid.map(r => Number(r[c.id]) || 0).sort((a, b) => a - b);
+                      let tAvg = null;
+                      if (scores.length >= 3) {
+                        const trimmed = scores.slice(1, -1);
+                        tAvg = (trimmed.reduce((a, b) => a + b, 0) / trimmed.length).toFixed(1);
+                      }
+                      return (
+                        <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '2px', backgroundColor: 'white', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(26,100,119,0.12)' }}>
+                          <span className="body-md" style={{ color: 'var(--text-sub)', fontSize: '12px' }}>{c.label}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                            <span className="title-md" style={{ fontSize: '15px', color: 'var(--primary)' }}>
+                              {tAvg !== null ? `${tAvg}점` : `${averages[c.id] || 0}점`}
+                              {tAvg !== null && <span style={{ fontSize: '11px', fontWeight: 'normal', color: 'var(--text-sub)', marginLeft: '3px' }}>(절사)</span>}
+                            </span>
+                            {tAvg !== null && (
+                              <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>
+                                원 {averages[c.id] || 0}점
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--primary)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="title-md">종합 원점수 평균</span>
+                    <span className="headline-md" style={{ color: 'var(--primary)' }}>{averages.total}점</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -1088,7 +1181,7 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {results.length === 0 && (
                     <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-sub)' }} className="body-md">
-                      조회된 평가 내역이 없습니다.
+                      선택하신 평가날짜({date})에 조회된 평가 내역이 없습니다.
                     </div>
                   )}
                   {results.map((r, i) => !r.isDeleted && (
@@ -1129,10 +1222,11 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <h3 className="title-md" style={{ marginBottom: '8px' }}>
                   {summaryMode === 'BY_DEPT' ? '부서별 집계' : '평가자별 집계'}
+                  <span style={{ fontSize: '13px', fontWeight: 'normal', color: 'var(--text-sub)', marginLeft: '8px' }}>(평가일자: {date})</span>
                 </h3>
                 {results.length === 0 && (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-sub)' }} className="body-md">
-                    데이터가 없습니다.
+                    선택하신 평가날짜({date})에 집계된 평가 데이터가 없습니다.
                   </div>
                 )}
                 {getAggregatedResults(summaryMode === 'BY_DEPT' ? 'department_name' : 'name').map((agg, idx) => (
@@ -1629,10 +1723,10 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                 <div>
                   <div style={{ textAlign: 'center', marginBottom: '18px' }}>
                     <h4 className="title-md" style={{ color: 'var(--primary)', marginBottom: '4px' }}>
-                      🏆 부서별 최종 순위 (평가자 항목별 절사평균법 적용)
+                      🏆 부서별 최종 순위 (평가날짜: {date})
                     </h4>
                     <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
-                      각 부서의 평가 항목별로 평가자들의 최고점(1건)과 최하점(1건)을 제외한 절사평균(Trimmed Mean) 및 그 합계 기준으로 산출된 최종 결과입니다.
+                      선택하신 평가날짜({date})에 등록된 평가 데이터를 바탕으로, 각 부서의 평가 항목별로 평가자들의 최고점(1건)과 최하점(1건)을 제외한 절사평균(Trimmed Mean) 및 그 합계 기준으로 산출된 최종 결과입니다.
                     </span>
                   </div>
 
@@ -1881,10 +1975,10 @@ const AdminDashboard = ({ user, onLogout, departments, setDepartments, criteria,
                 <div>
                   <div style={{ textAlign: 'center', marginBottom: '18px' }}>
                     <h4 className="title-md" style={{ color: 'var(--primary)', marginBottom: '4px' }}>
-                      👤 평가자별 최종 순위 (최고/최하점 제외 유효 합계)
+                      👤 평가자별 최종 순위 (평가날짜: {date})
                     </h4>
                     <span className="label-sm" style={{ color: 'var(--text-sub)' }}>
-                      각 평가자가 평가한 부서 점수 중 최고점(1개)과 최하점(1개)을 제외하고 합산한 랭킹입니다.
+                      선택하신 평가날짜({date})에 각 평가자가 평가한 부서 점수 중 최고점(1개)과 최하점(1개)을 제외하고 합산한 랭킹입니다.
                     </span>
                   </div>
 

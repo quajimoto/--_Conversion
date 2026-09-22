@@ -275,10 +275,27 @@ app.post('/api/evaluation/submit', async (req, res) => {
   }
 });
 
+// Admin evaluation dates list
+app.get('/api/admin/dates', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT to_char(eval_date, 'YYYY-MM-DD') as eval_date, COUNT(*) as count 
+      FROM evaluations 
+      WHERE is_deleted = FALSE 
+      GROUP BY to_char(eval_date, 'YYYY-MM-DD') 
+      ORDER BY eval_date DESC
+    `);
+    res.json({ dates: rows });
+  } catch (error) {
+    console.error('Error fetching admin dates:', error);
+    res.status(500).json({ error: 'DB Error' });
+  }
+});
+
 // Admin Results
 app.get('/api/admin/results', async (req, res) => {
   const dept = req.query.department;
-  const date = req.query.date; // optional
+  const date = req.query.date; // optional: YYYY-MM-DD
   
   try {
     let query = "SELECT id, evaluator_name, department_name, to_char(eval_date, 'YYYY-MM-DD') as eval_date, total_score, is_deleted, created_at FROM evaluations WHERE is_deleted = FALSE";
@@ -287,6 +304,11 @@ app.get('/api/admin/results', async (req, res) => {
     if (dept && dept !== '전체') {
       query += ' AND department_name = ?';
       params.push(dept);
+    }
+
+    if (date && date !== '전체') {
+      query += " AND to_char(eval_date, 'YYYY-MM-DD') = ?";
+      params.push(date);
     }
 
     query += ' ORDER BY created_at DESC';
